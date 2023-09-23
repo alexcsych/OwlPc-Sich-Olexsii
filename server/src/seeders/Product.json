@@ -1,0 +1,24 @@
+[
+  {
+    "name": "Видеокарта 1",
+    "type": "Видеокарта",
+    "price": 2000,
+    "memory": "8GB",
+    "fansAmount": 3,
+    "memoryType": "DDR6"
+  },
+  {
+    "name": "Процессор 1",
+    "type": "Процессор",
+    "price": 300,
+    "cores": 4
+  },
+  {
+    "name": "Материнская плата 1",
+    "type": "Материнская плата",
+    "price": 300,
+    "formFactor": "ff1",
+    "memoryType": "DDR4",
+    "RAMslotsAmount": 4
+  }
+]
