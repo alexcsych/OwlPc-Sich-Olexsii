@@ -8,7 +8,7 @@ const basename = path.basename(__filename);
 
 (async () => {
   try {
-    await mongoose.connect(`mongodb://${HOST}:${PORT}/${DATABASE}`, {
+    await mongoose.connect(`mongodb://${HOST}:${DBPORT}/${DATABASE}`, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
