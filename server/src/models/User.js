@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
+const yup = require('yup');
 
 const validRoles = ['customer', 'creator', 'moderator'];
+const EMAIL_VALIDATION_SCHEMA = yup.string().email();
 
 const Schema = new mongoose.Schema(
   {
@@ -11,6 +13,9 @@ const Schema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
+      validate: {
+        validator: v => EMAIL_VALIDATION_SCHEMA.isValidSync(v),
+      },
     },
     password: {
       type: String,
@@ -21,6 +26,19 @@ const Schema = new mongoose.Schema(
       required: true,
       enum: validRoles,
     },
+    cart: [
+      {
+        product: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Product',
+          required: true,
+        },
+        quantity: {
+          type: Number,
+          required: true,
+        },
+      },
+    ],
   },
   {
     timestamps: true,
