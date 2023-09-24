@@ -1,34 +1,34 @@
-const { User, Product, Order } = require('../models');
+const { User, Product } = require('../models');
 const userData = require('./User.json');
 const productData = require('./Product.json');
 
 async function createTestData () {
   try {
-    const users = await User.create(userData);
-    const products = await Product.create(productData);
+    await User.create(userData);
+    await Product.create(productData);
 
-    const orders = await Order.create([
-      {
-        user: users[0]._id,
-        products: [
-          { product: products[0]._id, quantity: 2 },
-          { product: products[1]._id, quantity: 1 },
-        ],
-      },
-      {
-        user: users[1]._id,
-        products: [
-          { product: products[1]._id, quantity: 2 },
-          { product: products[2]._id, quantity: 1 },
-        ],
-      },
-    ]);
-    await Promise.all(
-      orders.map(async order => {
-        await order.calculateTotalPrice();
-        await order.save();
-      })
-    );
+    // const orders = await Order.create([
+    //   {
+    //     user: users[0]._id,
+    //     products: [
+    //       { product: products[0]._id, quantity: 2 },
+    //       { product: products[1]._id, quantity: 1 },
+    //     ],
+    //   },
+    //   {
+    //     user: users[1]._id,
+    //     products: [
+    //       { product: products[1]._id, quantity: 2 },
+    //       { product: products[2]._id, quantity: 1 },
+    //     ],
+    //   },
+    // ]);
+    // await Promise.all(
+    //   orders.map(async order => {
+    //     await order.calculateTotalPrice();
+    //     await order.save();
+    //   })
+    // );
 
     // const updateQuery = { _id: orders[0]._id };
     // const updateData = { $set: { 'products.$[].quantity': 5 } };
