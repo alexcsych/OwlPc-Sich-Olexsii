@@ -1,10 +1,33 @@
 const { Telegraf, session } = require('telegraf');
 const axios = require('axios');
+const { signUpSchem, logInSchem } = require('./validation');
 require('dotenv').config();
 
-const { BOT_TOKEN, SERVER_API_URL } = process.env;
+const { BOT_TOKEN, SERVER_API_URL, SALT_ROUNDS } = process.env;
 const bot = new Telegraf(BOT_TOKEN);
 const httpClient = axios.create({ baseURL: `${SERVER_API_URL}` });
+
+const catchError = (ctx, error) => {
+  ctx.session.registrationStep = 'initial';
+  if (error.response) {
+    const { status, title, validationErrors } = error.response.data.errors;
+    ctx.reply(
+      `Error\n\nstatus:\n${status}\n\ntitle:\n${title}\n\n${
+        validationErrors
+          ? `validationErrors:\n${validationErrors.join('\n')}`
+          : ''
+      }`
+    );
+  } else if (error.errors) {
+    ctx.reply(
+      `Ошибка валидации. Пожалуйста, проверьте введенные данные.\n\nvalidationErrors:\n${error.errors.join(
+        '\n'
+      )}`
+    );
+  } else {
+    ctx.reply(`${error}`);
+  }
+};
 
 bot.use(session());
 
@@ -12,7 +35,10 @@ bot.start(ctx => {
   if (!ctx.session) {
     ctx.session = {};
   }
-  ctx.session.registrationStep = 'initial';
+  ctx.session.isLogin = false;
+  console.log('ctx.session :>> ', ctx.session);
+  // ctx.session.registrationStep = 'initial';
+  console.log('ctx.session :>> ', ctx.session);
   ctx.reply('Добро пожаловать! Выберите действие:', {
     reply_markup: {
       keyboard: [[{ text: 'Log In' }, { text: 'Sign Up' }]],
@@ -22,93 +48,103 @@ bot.start(ctx => {
 });
 
 bot.hears('Log In', ctx => {
-  ctx.reply('Введите свой логин:');
-  ctx.session.registrationStep = 'login';
+  console.log('ctx.session :>> ', ctx.session);
+  ctx.reply('Введите свою почту:');
+  ctx.session.registrationStep = 'login_email';
 });
 
 bot.hears('Sign Up', ctx => {
+  console.log('ctx.session :>> ', ctx.session);
   ctx.reply('Введите свой логин:');
   ctx.session.registrationStep = 'signup_username';
 });
 
 bot.hears('Log Out', ctx => {
-  ctx.session = {};
-  ctx.reply('Вы вышли из системы. Выберите действие:', {
-    reply_markup: {
-      keyboard: [[{ text: 'Log In' }, { text: 'Sign Up' }]],
-      resize_keyboard: true,
-    },
-  });
+  if (ctx.session.isLogin) {
+    ctx.session = {};
+    ctx.session.isLogin = false;
+    ctx.reply('Вы вышли из системы. Выберите действие:', {
+      reply_markup: {
+        keyboard: [[{ text: 'Log In' }, { text: 'Sign Up' }]],
+        resize_keyboard: true,
+      },
+    });
+  }
 });
 
 bot.on('text', async ctx => {
-  const userId = ctx.message.from.id;
+  // const userId = ctx.message.from.id;
   const messageText = ctx.message.text;
   const registrationStep = ctx.session.registrationStep || '';
 
   switch (registrationStep) {
-    case 'login':
-      ctx.session.login = messageText;
+    case 'login_email':
+      ctx.session.loginEmail = messageText;
       ctx.reply('Введите свой пароль:');
       ctx.session.registrationStep = 'login_password';
+      console.log(
+        'ctx.session.registrationStep :>> ',
+        ctx.session.registrationStep
+      );
       break;
     case 'login_password':
       // Отправляем логин и пароль на сервер для входа
-      // try {
-      //   const response = await axios.post(`${SERVER_API_URL}/login`, {
-      //     userId,
-      //     login: ctx.session.login,
-      //     password: messageText,
-      //   });
-      //   if (response.data.success) {
-      ctx.reply('Вход выполнен успешно!');
-      // Теперь пользователь вошел в систему и может просматривать продукцию и заказы
-      // Реализуйте логику для просмотра данных
-      ctx.reply('Выберите действие:', {
-        reply_markup: {
-          keyboard: [[{ text: 'Log Out' }]], // Добавляем кнопку Log Out
-          resize_keyboard: true,
-        },
-      });
-      //   } else {
-      //     ctx.reply('Ошибка входа. Проверьте логин и пароль.');
-      //   }
-      // } catch (error) {
-      //   ctx.reply('Произошла ошибка при входе.');
-      //   console.error(error);
-      // }
-      ctx.session.registrationStep = undefined;
+      ctx.session.loginPassword = messageText;
+      console.log('ctx.session.loginPassword :>> ', ctx.session.loginPassword);
+      const userLoginData = {
+        email: ctx.session.loginEmail,
+        password: ctx.session.loginPassword,
+      };
+      console.log('userLoginData :>> ', userLoginData);
+      try {
+        await logInSchem.validate(userLoginData, { abortEarly: false });
+        const response = await httpClient.post(`/users/login`, userLoginData);
+        if (response.data.data) {
+          ctx.session.isLogin = true;
+          ctx.reply('Вход выполнен успешно!');
+          ctx.reply('Выберите действие:', {
+            reply_markup: {
+              keyboard: [[{ text: 'Log Out' }]], // Добавляем кнопку Log Out
+              resize_keyboard: true,
+            },
+          });
+        }
+      } catch (error) {
+        console.log('error :>> ', error);
+        catchError(ctx, error);
+      }
       break;
     case 'signup_username':
-      ctx.session.username = messageText;
+      ctx.session.signupUsername = messageText;
       ctx.reply('Введите свой пароль для регистрации:');
       ctx.session.registrationStep = 'signup_password';
       break;
     case 'signup_password':
-      ctx.session.password = messageText;
+      ctx.session.signupPassword = messageText;
       ctx.reply('Введите свой адрес электронной почты для регистрации:');
       ctx.session.registrationStep = 'signup_email';
       break;
     case 'signup_email':
-      ctx.session.email = messageText;
+      ctx.session.signupEmail = messageText;
       ctx.reply(
         'Введите свою роль (например: customer, creator, moderator) для регистрации:'
       );
       ctx.session.registrationStep = 'signup_role';
       break;
     case 'signup_role':
-      ctx.session.role = messageText;
-      // Отправляем данные на сервер для регистрации
+      ctx.session.signupRole = messageText;
+      const userSignupData = {
+        name: ctx.session.signupUsername,
+        password: ctx.session.signupPassword,
+        email: ctx.session.signupEmail,
+        role: ctx.session.signupRole,
+        cart: [],
+      };
+
       try {
-        const response = await httpClient.post(`/api/users/signup`, {
-          name: ctx.session.username,
-          password: ctx.session.password,
-          email: ctx.session.email,
-          role: ctx.session.role,
-          cart: [],
-        });
-        console.log('response.data :>> ', response.data);
-        if (response.data.success) {
+        await signUpSchem.validate(userSignupData, { abortEarly: false });
+        const response = await httpClient.post(`/users/signup`, userSignupData);
+        if (response.data.data) {
           ctx.reply(
             'Регистрация выполнена успешно! Теперь вы можете войти в систему.'
           );
@@ -118,18 +154,11 @@ bot.on('text', async ctx => {
               resize_keyboard: true,
             },
           });
-        } else {
-          ctx.session = {};
-          ctx.reply(
-            'Ошибка регистрации. Пожалуйста, попробуйте другой логин или проверьте данные.'
-          );
+          ctx.session.isLogin = true;
         }
       } catch (error) {
-        ctx.session = {};
-        ctx.reply('Произошла ошибка при регистрации.');
-        console.error(error);
+        catchError(ctx, error);
       }
-      ctx.session.registrationStep = undefined;
       break;
     default:
       ctx.reply('Пожалуйста, выберите действие.');
