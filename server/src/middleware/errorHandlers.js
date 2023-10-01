@@ -4,13 +4,16 @@ module.exports.errorHandler = (err, req, res, next) => {
   }
 
   const status = err.status ?? 500;
+  const errors = {
+    status,
+    title: err.message ?? 'Server Error',
+  };
+  let newErrors;
+  err.validationErrors
+    ? (newErrors = { ...errors, validationErrors: err.validationErrors })
+    : (newErrors = { ...errors });
 
   res.status(status).send({
-    errors: [
-      {
-        status,
-        title: err.message ?? 'Server Error',
-      },
-    ],
+    errors: newErrors,
   });
 };
