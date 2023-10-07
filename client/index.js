@@ -34,8 +34,8 @@ bot.use(session());
 bot.start(ctx => {
   if (!ctx.session) {
     ctx.session = {};
+    ctx.session.isLogin = false;
   }
-  ctx.session.isLogin = false;
   console.log('ctx.session :>> ', ctx.session);
   // ctx.session.registrationStep = 'initial';
   console.log('ctx.session :>> ', ctx.session);
@@ -48,18 +48,30 @@ bot.start(ctx => {
 });
 
 bot.hears('Log In', ctx => {
+  if (!ctx.session) {
+    ctx.session = {};
+    ctx.session.isLogin = false;
+  }
   console.log('ctx.session :>> ', ctx.session);
   ctx.reply('Введите свою почту:');
   ctx.session.registrationStep = 'login_email';
 });
 
 bot.hears('Sign Up', ctx => {
+  if (!ctx.session) {
+    ctx.session = {};
+    ctx.session.isLogin = false;
+  }
   console.log('ctx.session :>> ', ctx.session);
   ctx.reply('Введите свой логин:');
   ctx.session.registrationStep = 'signup_username';
 });
 
 bot.hears('Log Out', ctx => {
+  if (!ctx.session) {
+    ctx.session = {};
+    ctx.session.isLogin = false;
+  }
   if (ctx.session.isLogin) {
     ctx.session = {};
     ctx.session.isLogin = false;
@@ -72,11 +84,44 @@ bot.hears('Log Out', ctx => {
   }
 });
 
+bot.hears('Menu', ctx => {
+  if (ctx.session.isLogin) {
+    ctx.reply('Головне меню', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Products', callback_data: 'getProducts' }],
+          [{ text: 'Orders', callback_data: 'getOrders' }],
+        ],
+      },
+    });
+  } else {
+    ctx.reply('Need autorisation');
+  }
+});
+
+bot.action('getProducts', ctx => {
+  if (ctx.session.isLogin) {
+    ctx.reply('Статистика за день', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Products', callback_data: 'getProducts' }],
+          [{ text: 'Orders', callback_data: 'getOrders' }],
+        ],
+      },
+    });
+  } else {
+    ctx.reply('Need autorisation');
+  }
+});
+
 bot.on('text', async ctx => {
+  if (!ctx.session) {
+    ctx.session = {};
+    ctx.session.isLogin = false;
+  }
   // const userId = ctx.message.from.id;
   const messageText = ctx.message.text;
   const registrationStep = ctx.session.registrationStep || '';
-
   switch (registrationStep) {
     case 'login_email':
       ctx.session.loginEmail = messageText;
@@ -104,7 +149,7 @@ bot.on('text', async ctx => {
           ctx.reply('Вход выполнен успешно!');
           ctx.reply('Выберите действие:', {
             reply_markup: {
-              keyboard: [[{ text: 'Log Out' }]], // Добавляем кнопку Log Out
+              keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]], // Добавляем кнопку Log Out
               resize_keyboard: true,
             },
           });
@@ -150,7 +195,7 @@ bot.on('text', async ctx => {
           );
           ctx.reply('Выберите действие:', {
             reply_markup: {
-              keyboard: [[{ text: 'Log Out' }]], // Добавляем кнопку Log Out
+              keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]], // Добавляем кнопку Log Out
               resize_keyboard: true,
             },
           });
