@@ -18,6 +18,9 @@
   "paths": {
     "/users/signup": {
       "post": {
+        "tags": [
+          "Users"
+        ],
         "summary": "Create a new user",
         "description": "This endpoint allows you to create a new user.",
         "parameters": [
@@ -49,6 +52,9 @@
     },
     "/users/login": {
       "post": {
+        "tags": [
+          "Users"
+        ],
         "summary": "User login",
         "description": "This endpoint allows users to log in by providing their login data.",
         "parameters": [
