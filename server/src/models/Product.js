@@ -1,12 +1,6 @@
 const mongoose = require('mongoose');
 
-const validTypes = [
-  'Видеокарта',
-  'Процессор',
-  'Корпус',
-  'Материнская плата',
-  'Оперативная память',
-];
+const validTypes = ['Video card', 'CPU', 'Case', 'Motherboard', 'RAM'];
 
 const productSchema = new mongoose.Schema(
   {

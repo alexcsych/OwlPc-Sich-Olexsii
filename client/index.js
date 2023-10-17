@@ -117,11 +117,11 @@ bot.action('getProductsCPU', async ctx => {
   if (ctx.session.isLogin) {
     try {
       console.log('response');
-      const response = await httpClient.get(`/products/?type=Видеокарта`);
+      const response = await httpClient.get(`/products/?type=Video card`);
       console.log('response.data.data :>> ', response.data.data);
       const inlineKeyboard = response.data.data.map(pr => ({
         text: pr.name,
-        callback_data: 'getMenu',
+        callback_data: `getProductCPU_${pr._id}`,
       }));
       const groupedButtons = [];
       while (inlineKeyboard.length > 0) {
@@ -141,6 +141,36 @@ bot.action('getProductsCPU', async ctx => {
     }
   } else {
     ctx.reply('Need authorization');
+  }
+});
+
+bot.on('callback_query', async ctx => {
+  const data = ctx.callbackQuery.data;
+
+  if (data.startsWith('getProductCPU_')) {
+    const productId = data.replace('getProductCPU_', '');
+    const response = await httpClient.get(`/products/${productId}`);
+    const productDetails = response.data.data;
+
+    const productDetailsText = Object.entries(productDetails)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('\n');
+
+    const uniqueIdentifier = Math.random().toString(36).substring(7);
+
+    if (ctx.session.messageId) {
+      ctx.telegram.editMessageText(
+        ctx.chat.id,
+        ctx.session.messageId,
+        null,
+        `Информация о продукте (${uniqueIdentifier}):\n\n${productDetailsText}`
+      );
+    } else {
+      const sentMessage = await ctx.reply(
+        `Информация о продукте (${uniqueIdentifier}):\n\n${productDetailsText}`
+      );
+      ctx.session.messageId = sentMessage.message_id;
+    }
   }
 });
 
