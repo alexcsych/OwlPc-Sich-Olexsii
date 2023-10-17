@@ -5,8 +5,9 @@ const {
   productsMenuKeyboard,
   ordersMenuKeyboard,
   accountMenuKeyboard,
-} = require('./constants');
+} = require('./menu');
 const {
+  httpClient,
   initializeSession,
   handleLoginEmailStep,
   handleLoginPasswordStep,
@@ -14,14 +15,14 @@ const {
   handleSignupPasswordStep,
   handleSignupEmailStep,
   handleSignupRoleStep,
-} = require('./steps');
+} = require('./functions');
 
 const { BOT_TOKEN } = process.env;
 const bot = new Telegraf(BOT_TOKEN);
 
-const showMenuKeyboard = (ctx, messageText, keyboard) => {
+const showMenuKeyboard = (ctx, keyboard) => {
   if (ctx.session.isLogin) {
-    ctx.editMessageText(messageText, keyboard);
+    ctx.editMessageText('Main menu', keyboard);
   } else {
     ctx.reply('Need authorization');
   }
@@ -52,6 +53,8 @@ const catchError = (ctx, error) => {
 bot.use(session());
 
 bot.start(ctx => {
+  ctx.session = {};
+  ctx.session.isLogin = false;
   console.log('ctx.session :>> ', ctx.session);
   console.log('ctx.session :>> ', ctx.session);
   ctx.reply('Welcome! Choose an action:', {
@@ -95,19 +98,50 @@ bot.hears('Menu', ctx => {
 });
 
 bot.action('getProducts', ctx => {
-  showMenuKeyboard(ctx, 'Main menu', productsMenuKeyboard);
+  showMenuKeyboard(ctx, productsMenuKeyboard);
 });
 
 bot.action('getMenu', ctx => {
-  showMenuKeyboard(ctx, 'Main menu', mainMenuKeyboard);
+  showMenuKeyboard(ctx, mainMenuKeyboard);
 });
 
 bot.action('getOrders', ctx => {
-  showMenuKeyboard(ctx, 'Main menu', ordersMenuKeyboard);
+  showMenuKeyboard(ctx, ordersMenuKeyboard);
 });
 
 bot.action('getAccount', ctx => {
-  showMenuKeyboard(ctx, 'Main menu', accountMenuKeyboard);
+  showMenuKeyboard(ctx, accountMenuKeyboard);
+});
+
+bot.action('getProductsCPU', async ctx => {
+  if (ctx.session.isLogin) {
+    try {
+      console.log('response');
+      const response = await httpClient.get(`/products/?type=Видеокарта`);
+      console.log('response.data.data :>> ', response.data.data);
+      const inlineKeyboard = response.data.data.map(pr => ({
+        text: pr.name,
+        callback_data: 'getMenu',
+      }));
+      const groupedButtons = [];
+      while (inlineKeyboard.length > 0) {
+        groupedButtons.push(inlineKeyboard.splice(0, 3));
+      }
+      groupedButtons.push([
+        { text: '<', callback_data: 'getMenu' },
+        { text: '>', callback_data: 'getMenu' },
+      ]);
+      groupedButtons.push([{ text: '<<', callback_data: 'getMenu' }]);
+      const replyMarkup = {
+        inline_keyboard: groupedButtons,
+      };
+      ctx.editMessageText('Main menu', { reply_markup: replyMarkup });
+    } catch (error) {
+      catchError(ctx, error);
+    }
+  } else {
+    ctx.reply('Need authorization');
+  }
 });
 
 bot.on('text', async ctx => {
