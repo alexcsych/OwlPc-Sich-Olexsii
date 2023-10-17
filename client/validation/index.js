@@ -1,11 +1,11 @@
 const yup = require('yup');
 
 module.exports.signUpSchem = yup.object().shape({
-  name: yup.string().required('Name обязательно для заполнения'),
+  name: yup.string().required('Name is required'),
   email: yup
     .string()
-    .email('Неверный формат email')
-    .required('Email обязателен для заполнения'),
+    .email('Invalid email format')
+    .required('Email is required'),
   password: yup
     .string()
     .min(6, 'Password must be 6 characters long')
@@ -13,21 +13,21 @@ module.exports.signUpSchem = yup.object().shape({
     .matches(/[a-z]/, 'Password requires a lowercase letter')
     .matches(/[A-Z]/, 'Password requires an uppercase letter')
     .matches(/[^\w]/, 'Password requires a symbol')
-    .required('Password обязателен для заполнения'),
+    .required('Password is required'),
   role: yup
     .string()
     .oneOf(
       ['customer', 'creator', 'moderator'],
       'Role must be one of the following values: customer, creator, moderator'
     )
-    .required('Role обязателен для заполнения'),
+    .required('Role is required'),
 });
 
 module.exports.logInSchem = yup.object().shape({
   email: yup
     .string()
-    .email('Неверный формат email')
-    .required('Email обязателен для заполнения'),
+    .email('Invalid email format')
+    .required('Email is required'),
   password: yup
     .string()
     .min(6, 'Password must be 6 characters long')
@@ -35,5 +35,5 @@ module.exports.logInSchem = yup.object().shape({
     .matches(/[a-z]/, 'Password requires a lowercase letter')
     .matches(/[A-Z]/, 'Password requires an uppercase letter')
     .matches(/[^\w]/, 'Password requires a symbol')
-    .required('Password обязателен для заполнения'),
+    .required('Password is required'),
 });
