@@ -2,17 +2,30 @@ const createHttpError = require('http-errors');
 const { Product } = require('./../models');
 
 module.exports.getProducts = async (req, res, next) => {
-  const { query } = req;
-  console.log('query :>> ', query);
+  const { type, limit, offset } = req.query;
+  console.log('query :>> ', type, limit, offset);
+  const newLimit = limit + 1;
   try {
-    if (!query.type) {
+    if (!type) {
       next(createHttpError(400, 'Type parameter is required'));
     }
 
-    const products = await Product.find({ type: query.type });
+    const products = await Product.find({ type: type })
+      .limit(newLimit)
+      .skip(offset);
     console.log('products :>> ', products);
-
-    res.status(200).send({ data: products });
+    const newProducts = products.filter(pr => {
+      return pr !== null;
+    });
+    console.log('newProducts :>> ', newProducts);
+    if (newProducts.length > 0) {
+      if (newProducts.length === 10) {
+        newProducts.pop();
+      }
+      res.status(200).send({ data: { products: newProducts, next: true } });
+    } else {
+      res.status(200).send({ data: { next: false } });
+    }
   } catch (err) {
     next(err);
   }

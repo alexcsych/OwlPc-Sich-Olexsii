@@ -5,6 +5,8 @@ const {
   productsMenuKeyboard,
   ordersMenuKeyboard,
   accountMenuKeyboard,
+  itemsPerPage,
+  categoryPageList,
 } = require('./menu');
 const {
   httpClient,
@@ -15,13 +17,16 @@ const {
   handleSignupPasswordStep,
   handleSignupEmailStep,
   handleSignupRoleStep,
+  menuPrevNext,
+  deleteChatMessage,
 } = require('./functions');
 
 const { BOT_TOKEN } = process.env;
 const bot = new Telegraf(BOT_TOKEN);
 
-const showMenuKeyboard = (ctx, keyboard) => {
+const showMenuKeyboard = async (ctx, keyboard) => {
   if (ctx.session.isLogin) {
+    deleteChatMessage(ctx, ctx.session.messageId);
     ctx.editMessageText('Main menu', keyboard);
   } else {
     ctx.reply('Need authorization');
@@ -89,9 +94,12 @@ bot.hears('Log Out', ctx => {
   }
 });
 
-bot.hears('Menu', ctx => {
+bot.hears('Menu', async ctx => {
   if (ctx.session.isLogin) {
-    ctx.reply('Main menu', mainMenuKeyboard);
+    deleteChatMessage(ctx, ctx.session.menuId);
+    deleteChatMessage(ctx, ctx.session.messageId);
+    const sentMessage = await ctx.reply('Main menu', mainMenuKeyboard);
+    ctx.session.menuId = sentMessage.message_id;
   } else {
     ctx.reply('Need authorization');
   }
@@ -113,29 +121,17 @@ bot.action('getAccount', ctx => {
   showMenuKeyboard(ctx, accountMenuKeyboard);
 });
 
-bot.action('getProductsCPU', async ctx => {
+bot.action('getProducts_Video Card', async ctx => {
   if (ctx.session.isLogin) {
+    const category = 'Video card';
+    const currentPage = categoryPageList[category] || 1;
     try {
-      console.log('response');
-      const response = await httpClient.get(`/products/?type=Video card`);
-      console.log('response.data.data :>> ', response.data.data);
-      const inlineKeyboard = response.data.data.map(pr => ({
-        text: pr.name,
-        callback_data: `getProductCPU_${pr._id}`,
-      }));
-      const groupedButtons = [];
-      while (inlineKeyboard.length > 0) {
-        groupedButtons.push(inlineKeyboard.splice(0, 3));
-      }
-      groupedButtons.push([
-        { text: '<', callback_data: 'getMenu' },
-        { text: '>', callback_data: 'getMenu' },
-      ]);
-      groupedButtons.push([{ text: '<<', callback_data: 'getMenu' }]);
-      const replyMarkup = {
-        inline_keyboard: groupedButtons,
-      };
-      ctx.editMessageText('Main menu', { reply_markup: replyMarkup });
+      const offset = (currentPage - 1) * itemsPerPage;
+      const { data } = await httpClient.get(
+        `/products/?type=${category}&&limit=${itemsPerPage}&&offset=${offset}`
+      );
+      console.log('response.data.data :>> ', data.data);
+      menuPrevNext(ctx, data, category, currentPage);
     } catch (error) {
       catchError(ctx, error);
     }
@@ -145,32 +141,76 @@ bot.action('getProductsCPU', async ctx => {
 });
 
 bot.on('callback_query', async ctx => {
-  const data = ctx.callbackQuery.data;
+  if (ctx.session.isLogin) {
+    const data = ctx.callbackQuery.data;
 
-  if (data.startsWith('getProductCPU_')) {
-    const productId = data.replace('getProductCPU_', '');
-    const response = await httpClient.get(`/products/${productId}`);
-    const productDetails = response.data.data;
+    if (data.startsWith('getProduct_')) {
+      const productId = data.replace('getProduct_', '');
+      const response = await httpClient.get(`/products/${productId}`);
+      const productDetails = response.data.data;
 
-    const productDetailsText = Object.entries(productDetails)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join('\n');
+      const productDetailsText = Object.entries(productDetails)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join('\n');
 
-    const uniqueIdentifier = Math.random().toString(36).substring(7);
+      const uniqueIdentifier = Math.random().toString(36).substring(7);
 
-    if (ctx.session.messageId) {
-      ctx.telegram.editMessageText(
-        ctx.chat.id,
-        ctx.session.messageId,
-        null,
-        `Информация о продукте (${uniqueIdentifier}):\n\n${productDetailsText}`
-      );
-    } else {
-      const sentMessage = await ctx.reply(
-        `Информация о продукте (${uniqueIdentifier}):\n\n${productDetailsText}`
-      );
-      ctx.session.messageId = sentMessage.message_id;
+      if (ctx.session.messageId) {
+        try {
+          await ctx.telegram.editMessageText(
+            ctx.chat.id,
+            ctx.session.messageId,
+            null,
+            `Product Information (${uniqueIdentifier}):\n\n${productDetailsText}`
+          );
+        } catch (error) {
+          const sentMessage = await ctx.reply(
+            `Product Information (${uniqueIdentifier}):\n\n${productDetailsText}`
+          );
+          ctx.session.messageId = sentMessage.message_id;
+        }
+      } else {
+        const sentMessage = await ctx.reply(
+          `Product Information (${uniqueIdentifier}):\n\n${productDetailsText}`
+        );
+        ctx.session.messageId = sentMessage.message_id;
+      }
+    } else if (data.startsWith('prevPageBTN_')) {
+      console.log('prevPageBTN_');
+      const category = data.replace('prevPageBTN_', '');
+      if (categoryPageList[category] > 1) {
+        const currentPage = --categoryPageList[category];
+        try {
+          const offset = (currentPage - 1) * itemsPerPage;
+          const { data } = await httpClient.get(
+            `/products/?type=${category}&&limit=${itemsPerPage}&&offset=${offset}`
+          );
+          menuPrevNext(ctx, data, category, currentPage);
+        } catch (error) {
+          catchError(ctx, error);
+        }
+      }
+    } else if (data.startsWith('nextPageBTN_')) {
+      console.log('nextPageBTN_');
+      const category = data.replace('nextPageBTN_', '');
+      const currentPage = ++categoryPageList[category];
+      try {
+        const offset = (currentPage - 1) * itemsPerPage;
+        const { data } = await httpClient.get(
+          `/products/?type=${category}&&limit=${itemsPerPage}&&offset=${offset}`
+        );
+        console.log('response.data.data :>> ', data.data);
+        if (data.data.next) {
+          menuPrevNext(ctx, data, category, currentPage);
+        } else {
+          --categoryPageList[category];
+        }
+      } catch (error) {
+        catchError(ctx, error);
+      }
     }
+  } else {
+    ctx.reply('Need authorization');
   }
 });
 

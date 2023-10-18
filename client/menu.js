@@ -15,7 +15,7 @@ const productsMenuKeyboard = {
     inline_keyboard: [
       [
         { text: 'CPU', callback_data: 'getProductsCPU' },
-        { text: 'Video card', callback_data: 'getMenu' },
+        { text: 'Video card', callback_data: 'getProducts_Video Card' },
         { text: 'Case', callback_data: 'getMenu' },
       ],
       [
@@ -56,9 +56,21 @@ const accountMenuKeyboard = {
   },
 };
 
+const itemsPerPage = 9;
+
+const categoryPageList = {
+  'Video card': 1,
+  CPU: 1,
+  Case: 1,
+  Motherboard: 1,
+  RAM: 1,
+};
+
 module.exports = {
   mainMenuKeyboard,
   productsMenuKeyboard,
   ordersMenuKeyboard,
   accountMenuKeyboard,
+  itemsPerPage,
+  categoryPageList,
 };

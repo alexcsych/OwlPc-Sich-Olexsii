@@ -43,6 +43,7 @@ function handleLoginEmailStep (ctx, messageText) {
 async function handleLoginPasswordStep (ctx, messageText) {
   const { session } = ctx;
   session.loginPassword = messageText;
+  session.registrationStep = '';
   const userLoginData = {
     email: session.loginEmail,
     password: session.loginPassword,
@@ -91,6 +92,7 @@ function handleSignupEmailStep (ctx, messageText) {
 async function handleSignupRoleStep (ctx, messageText) {
   const { session } = ctx;
   session.signupRole = messageText;
+  session.registrationStep = '';
   const userSignupData = {
     name: session.signupUsername,
     password: session.signupPassword,
@@ -115,6 +117,36 @@ async function handleSignupRoleStep (ctx, messageText) {
     catchError(ctx, error);
   }
 }
+const menuPrevNext = (ctx, { data }, category, currentPage) => {
+  const inlineKeyboard = data.products.map(pr => ({
+    text: pr.name,
+    callback_data: `getProduct_${pr._id}`,
+  }));
+  const groupedButtons = [];
+  while (inlineKeyboard.length > 0) {
+    groupedButtons.push(inlineKeyboard.splice(0, 3));
+  }
+  groupedButtons.push([
+    { text: '<', callback_data: `prevPageBTN_${category}` },
+    { text: `Current Page ${currentPage}`, callback_data: `page` },
+    { text: '>', callback_data: `nextPageBTN_${category}` },
+  ]);
+  groupedButtons.push([{ text: '<<', callback_data: 'getProducts' }]);
+  const replyMarkup = {
+    inline_keyboard: groupedButtons,
+  };
+  ctx.editMessageText('Main menu', { reply_markup: replyMarkup });
+};
+
+const deleteChatMessage = async (ctx, id) => {
+  if (id) {
+    try {
+      await ctx.telegram.deleteMessage(ctx.chat.id, id);
+    } catch (error) {
+      console.error('Error deleting message:', error);
+    }
+  }
+};
 
 module.exports = {
   httpClient,
@@ -125,4 +157,6 @@ module.exports = {
   handleSignupPasswordStep,
   handleSignupEmailStep,
   handleSignupRoleStep,
+  menuPrevNext,
+  deleteChatMessage,
 };
