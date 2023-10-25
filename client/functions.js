@@ -29,6 +29,13 @@ const catchError = (ctx, error) => {
 function initializeSession (ctx) {
   ctx.session = {};
   ctx.session.isLogin = false;
+  ctx.session.typePageList = {
+    'Video Card': 1,
+    CPU: 1,
+    Case: 1,
+    Motherboard: 1,
+    RAM: 1,
+  };
   console.log('ctx.session :>> ', ctx.session);
 }
 
@@ -117,7 +124,7 @@ async function handleSignupRoleStep (ctx, messageText) {
     catchError(ctx, error);
   }
 }
-const menuPrevNext = (ctx, { data }, category, currentPage) => {
+const menuPrevNext = (ctx, { data }, type, currentPage) => {
   const inlineKeyboard = data.products.map(pr => ({
     text: pr.name,
     callback_data: `getProduct_${pr._id}`,
@@ -127,9 +134,9 @@ const menuPrevNext = (ctx, { data }, category, currentPage) => {
     groupedButtons.push(inlineKeyboard.splice(0, 3));
   }
   groupedButtons.push([
-    { text: '<', callback_data: `prevPageBTN_${category}` },
+    { text: '<', callback_data: `prevPageBTN_${type}` },
     { text: `Current Page ${currentPage}`, callback_data: `page` },
-    { text: '>', callback_data: `nextPageBTN_${category}` },
+    { text: '>', callback_data: `nextPageBTN_${type}` },
   ]);
   groupedButtons.push([{ text: '<<', callback_data: 'getProducts' }]);
   const replyMarkup = {

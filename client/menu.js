@@ -14,13 +14,13 @@ const productsMenuKeyboard = {
   reply_markup: {
     inline_keyboard: [
       [
-        { text: 'CPU', callback_data: 'getProductsCPU' },
-        { text: 'Video card', callback_data: 'getProducts_Video Card' },
-        { text: 'Case', callback_data: 'getMenu' },
+        { text: 'CPU', callback_data: 'getProducts_CPU' },
+        { text: 'Video Card', callback_data: 'getProducts_Video Card' },
+        { text: 'Case', callback_data: 'getProducts_Case' },
       ],
       [
-        { text: 'Motherboard', callback_data: 'getMenu' },
-        { text: 'RAM', callback_data: 'getMenu' },
+        { text: 'Motherboard', callback_data: 'getProducts_Motherboard' },
+        { text: 'RAM', callback_data: 'getProducts_RAM' },
       ],
       [{ text: '<<', callback_data: 'getMenu' }],
     ],
@@ -57,14 +57,7 @@ const accountMenuKeyboard = {
 };
 
 const itemsPerPage = 9;
-
-const categoryPageList = {
-  'Video card': 1,
-  CPU: 1,
-  Case: 1,
-  Motherboard: 1,
-  RAM: 1,
-};
+// const typeList = ['Video Card', 'CPU', 'Case', 'Motherboard', 'RAM'];
 
 module.exports = {
   mainMenuKeyboard,
@@ -72,5 +65,4 @@ module.exports = {
   ordersMenuKeyboard,
   accountMenuKeyboard,
   itemsPerPage,
-  categoryPageList,
 };

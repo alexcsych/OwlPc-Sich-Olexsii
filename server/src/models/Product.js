@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const validTypes = ['Video card', 'CPU', 'Case', 'Motherboard', 'RAM'];
+const validTypes = ['Video Card', 'CPU', 'Case', 'Motherboard', 'RAM'];
 
 const productSchema = new mongoose.Schema(
   {
@@ -21,6 +21,7 @@ const productSchema = new mongoose.Schema(
     memoryType: String,
     cores: Number,
     formFactor: String,
+    socket: String,
     fansAmount: Number,
     RAMslotsAmount: Number,
   },

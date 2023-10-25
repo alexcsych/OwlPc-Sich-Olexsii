@@ -6,7 +6,6 @@ const {
   ordersMenuKeyboard,
   accountMenuKeyboard,
   itemsPerPage,
-  categoryPageList,
 } = require('./menu');
 const {
   httpClient,
@@ -121,30 +120,26 @@ bot.action('getAccount', ctx => {
   showMenuKeyboard(ctx, accountMenuKeyboard);
 });
 
-bot.action('getProducts_Video Card', async ctx => {
-  if (ctx.session.isLogin) {
-    const category = 'Video card';
-    const currentPage = categoryPageList[category] || 1;
-    try {
-      const offset = (currentPage - 1) * itemsPerPage;
-      const { data } = await httpClient.get(
-        `/products/?type=${category}&&limit=${itemsPerPage}&&offset=${offset}`
-      );
-      console.log('response.data.data :>> ', data.data);
-      menuPrevNext(ctx, data, category, currentPage);
-    } catch (error) {
-      catchError(ctx, error);
-    }
-  } else {
-    ctx.reply('Need authorization');
-  }
-});
-
 bot.on('callback_query', async ctx => {
   if (ctx.session.isLogin) {
     const data = ctx.callbackQuery.data;
 
-    if (data.startsWith('getProduct_')) {
+    if (data.startsWith('getProducts_')) {
+      const type = data.replace('getProducts_', '');
+      const currentPage = ctx.session.typePageList[type] || 1;
+      try {
+        const offset = (currentPage - 1) * itemsPerPage;
+        const { data } = await httpClient.get(
+          `/products/?type=${type}&&limit=${itemsPerPage}&&offset=${offset}`
+        );
+        console.log('response.data.data :>> ', data.data);
+        if (data.data.next) {
+          menuPrevNext(ctx, data, type, currentPage);
+        }
+      } catch (error) {
+        catchError(ctx, error);
+      }
+    } else if (data.startsWith('getProduct_')) {
       const productId = data.replace('getProduct_', '');
       const response = await httpClient.get(`/products/${productId}`);
       const productDetails = response.data.data;
@@ -177,33 +172,33 @@ bot.on('callback_query', async ctx => {
       }
     } else if (data.startsWith('prevPageBTN_')) {
       console.log('prevPageBTN_');
-      const category = data.replace('prevPageBTN_', '');
-      if (categoryPageList[category] > 1) {
-        const currentPage = --categoryPageList[category];
+      const type = data.replace('prevPageBTN_', '');
+      if (ctx.session.typePageList[type] > 1) {
+        const currentPage = --ctx.session.typePageList[type];
         try {
           const offset = (currentPage - 1) * itemsPerPage;
           const { data } = await httpClient.get(
-            `/products/?type=${category}&&limit=${itemsPerPage}&&offset=${offset}`
+            `/products/?type=${type}&&limit=${itemsPerPage}&&offset=${offset}`
           );
-          menuPrevNext(ctx, data, category, currentPage);
+          menuPrevNext(ctx, data, type, currentPage);
         } catch (error) {
           catchError(ctx, error);
         }
       }
     } else if (data.startsWith('nextPageBTN_')) {
       console.log('nextPageBTN_');
-      const category = data.replace('nextPageBTN_', '');
-      const currentPage = ++categoryPageList[category];
+      const type = data.replace('nextPageBTN_', '');
+      const currentPage = ++ctx.session.typePageList[type];
       try {
         const offset = (currentPage - 1) * itemsPerPage;
         const { data } = await httpClient.get(
-          `/products/?type=${category}&&limit=${itemsPerPage}&&offset=${offset}`
+          `/products/?type=${type}&&limit=${itemsPerPage}&&offset=${offset}`
         );
         console.log('response.data.data :>> ', data.data);
         if (data.data.next) {
-          menuPrevNext(ctx, data, category, currentPage);
+          menuPrevNext(ctx, data, type, currentPage);
         } else {
-          --categoryPageList[category];
+          --ctx.session.typePageList[type];
         }
       } catch (error) {
         catchError(ctx, error);
