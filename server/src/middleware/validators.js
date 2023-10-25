@@ -1,9 +1,9 @@
 const createError = require('http-errors');
-const { signUpSchem, logInSchem } = require('../validation');
+const { signUpSchem, logInSchem, updateUserSchem } = require('../validation');
 
-module.exports.validateSignUpData = async (req, res, next) => {
+const valid = async (req, res, next, schem) => {
   try {
-    await signUpSchem.validate(req.body, { abortEarly: false });
+    await schem.validate(req.body, { abortEarly: false });
     next();
   } catch (error) {
     const validationErrors = error.errors || [];
@@ -16,19 +16,14 @@ module.exports.validateSignUpData = async (req, res, next) => {
   }
 };
 
+module.exports.validateSignUpData = async (req, res, next) => {
+  valid(req, res, next, signUpSchem);
+};
+
 module.exports.validateLogInData = async (req, res, next) => {
-  try {
-    console.log('validateLogInData');
-    await logInSchem.validate(req.body, { abortEarly: false });
-    console.log('validateLogInData1');
-    next();
-  } catch (error) {
-    const validationErrors = error.errors || [];
-    const customError = createError(
-      400,
-      'Invalid login data. Please check the provided data and try again.'
-    );
-    customError.validationErrors = validationErrors;
-    next(customError);
-  }
+  valid(req, res, next, logInSchem);
+};
+
+module.exports.validateUpdateData = async (req, res, next) => {
+  valid(req, res, next, updateUserSchem);
 };

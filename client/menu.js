@@ -43,13 +43,14 @@ const ordersMenuKeyboard = {
 const accountMenuKeyboard = {
   reply_markup: {
     inline_keyboard: [
+      [{ text: 'Get Full Info', callback_data: 'getFullInfo' }],
       [
-        { text: 'Change Name', callback_data: 'getMenu' },
-        { text: 'Change Password', callback_data: 'getMenu' },
+        { text: 'Change Name', callback_data: 'changeName' },
+        { text: 'Change Password', callback_data: 'changePassword' },
       ],
       [
-        { text: 'Change Email', callback_data: 'getMenu' },
-        { text: 'Change All Info', callback_data: 'getMenu' },
+        { text: 'Change Email', callback_data: 'changeEmail' },
+        { text: 'Change All Info', callback_data: 'changeAllInfo' },
       ],
       [{ text: '<<', callback_data: 'getMenu' }],
     ],

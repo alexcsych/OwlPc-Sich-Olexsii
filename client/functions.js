@@ -1,11 +1,12 @@
 require('dotenv').config();
 const axios = require('axios');
-const { signUpSchem, logInSchem } = require('./validation');
+const { signUpSchem, logInSchem, updateUserSchem } = require('./validation');
+const { accountMenuKeyboard } = require('./menu');
 const { SERVER_API_URL } = process.env;
 const httpClient = axios.create({ baseURL: SERVER_API_URL });
 
 const catchError = (ctx, error) => {
-  ctx.session.registrationStep = 'initial';
+  ctx.session.step = 'initial';
   if (error.response) {
     const { status, title, validationErrors } = error.response.data.errors;
     ctx.reply(
@@ -26,41 +27,42 @@ const catchError = (ctx, error) => {
   }
 };
 
-function initializeSession (ctx) {
-  ctx.session = {};
-  ctx.session.isLogin = false;
-  ctx.session.typePageList = {
+function initializeSession ({ session }) {
+  session = {};
+  session.isLogin = false;
+  session.typePageList = {
     'Video Card': 1,
     CPU: 1,
     Case: 1,
     Motherboard: 1,
     RAM: 1,
   };
-  console.log('ctx.session :>> ', ctx.session);
+  console.log('ctx.session :>> ', session);
 }
 
 function handleLoginEmailStep (ctx, messageText) {
   const { session } = ctx;
-  session.loginEmail = messageText;
+  session.login = {};
+  session.login.email = messageText;
   ctx.reply('Enter your password:');
-  session.registrationStep = 'login_password';
-  console.log('ctx.session.registrationStep :>> ', session.registrationStep);
+  session.step = 'login_password';
+  console.log('ctx.session.step :>> ', session.step);
 }
 
 async function handleLoginPasswordStep (ctx, messageText) {
   const { session } = ctx;
-  session.loginPassword = messageText;
-  session.registrationStep = '';
+  session.login.password = messageText;
+  session.step = '';
   const userLoginData = {
-    email: session.loginEmail,
-    password: session.loginPassword,
+    ...session.login,
   };
 
   try {
     await logInSchem.validate(userLoginData, { abortEarly: false });
-    const response = await httpClient.post(`/users/login`, userLoginData);
-    if (response.data.data) {
+    const { data } = await httpClient.post(`/users/login`, userLoginData);
+    if (data.data) {
       session.isLogin = true;
+      session.login = { ...data.data };
       ctx.reply('Login successful! Choose an action:', {
         reply_markup: {
           keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]],
@@ -75,44 +77,43 @@ async function handleLoginPasswordStep (ctx, messageText) {
 
 function handleSignupUsernameStep (ctx, messageText) {
   const { session } = ctx;
-  session.signupUsername = messageText;
+  session.signup = {};
+  session.signup.name = messageText;
   ctx.reply('Enter your password to register:');
-  session.registrationStep = 'signup_password';
+  session.step = 'signup_password';
 }
 
 function handleSignupPasswordStep (ctx, messageText) {
   const { session } = ctx;
-  session.signupPassword = messageText;
+  session.signup.password = messageText;
   ctx.reply('Enter your email address to register:');
-  session.registrationStep = 'signup_email';
+  session.step = 'signup_email';
 }
 
 function handleSignupEmailStep (ctx, messageText) {
   const { session } = ctx;
-  session.signupEmail = messageText;
+  session.signup.email = messageText;
   ctx.reply(
     'Enter your role (for example: customer, creator, moderator) to register:'
   );
-  session.registrationStep = 'signup_role';
+  session.step = 'signup_role';
 }
 
 async function handleSignupRoleStep (ctx, messageText) {
   const { session } = ctx;
-  session.signupRole = messageText;
-  session.registrationStep = '';
+  session.signup.role = messageText;
+  session.step = '';
   const userSignupData = {
-    name: session.signupUsername,
-    password: session.signupPassword,
-    email: session.signupEmail,
-    role: session.signupRole,
+    ...session.signup,
     cart: [],
   };
 
   try {
     await signUpSchem.validate(userSignupData, { abortEarly: false });
-    const response = await httpClient.post(`/users/signup`, userSignupData);
-    if (response.data.data) {
+    const { data } = await httpClient.post(`/users/signup`, userSignupData);
+    if (data.data) {
       session.isLogin = true;
+      delete session.signup.password;
       ctx.reply('Registration completed successfully! Choose an action:', {
         reply_markup: {
           keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]],
@@ -124,8 +125,9 @@ async function handleSignupRoleStep (ctx, messageText) {
     catchError(ctx, error);
   }
 }
+
 const menuPrevNext = (ctx, { data }, type, currentPage) => {
-  const inlineKeyboard = data.products.map(pr => ({
+  const inlineKeyboard = data.map(pr => ({
     text: pr.name,
     callback_data: `getProduct_${pr._id}`,
   }));
@@ -155,6 +157,59 @@ const deleteChatMessage = async (ctx, id) => {
   }
 };
 
+const editMessage = async (ctx, text) => {
+  if (ctx.session.messageId) {
+    try {
+      await ctx.telegram.editMessageText(
+        ctx.chat.id,
+        ctx.session.messageId,
+        null,
+        text
+      );
+    } catch (error) {
+      const sentMessage = await ctx.reply(text);
+      ctx.session.messageId = sentMessage.message_id;
+    }
+  } else {
+    const sentMessage = await ctx.reply(text);
+    ctx.session.messageId = sentMessage.message_id;
+  }
+};
+
+const handleChangeStep = async ctx => {
+  const { session } = ctx;
+  session.step = '';
+  const userUpdateData = {
+    ...session.updateData,
+  };
+  try {
+    await updateUserSchem.validate(userUpdateData, { abortEarly: false });
+    console.log('valid :>> ');
+    const { data } = await httpClient.put(
+      `/users/${session.signup ? session.signup.email : session.login.email}`,
+      userUpdateData
+    );
+    console.log('data');
+    if (data.data) {
+      console.log('data.data');
+      if (session.signup) {
+        session.signup = { ...data.data };
+        console.log('session.signup :>> ', session.signup);
+      } else {
+        session.login = { ...data.data };
+        console.log('session.login :>> ', session.login);
+      }
+      ctx.reply('User was updated');
+      deleteChatMessage(ctx, ctx.session.menuId);
+      deleteChatMessage(ctx, ctx.session.messageId);
+      const sentMessage = await ctx.reply('Main menu', accountMenuKeyboard);
+      ctx.session.menuId = sentMessage.message_id;
+    }
+  } catch (error) {
+    catchError(ctx, error);
+  }
+};
+
 module.exports = {
   httpClient,
   initializeSession,
@@ -166,4 +221,6 @@ module.exports = {
   handleSignupRoleStep,
   menuPrevNext,
   deleteChatMessage,
+  editMessage,
+  handleChangeStep,
 };

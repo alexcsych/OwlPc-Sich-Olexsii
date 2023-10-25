@@ -18,6 +18,8 @@ const {
   handleSignupRoleStep,
   menuPrevNext,
   deleteChatMessage,
+  editMessage,
+  handleChangeStep,
 } = require('./functions');
 
 const { BOT_TOKEN } = process.env;
@@ -33,7 +35,7 @@ const showMenuKeyboard = async (ctx, keyboard) => {
 };
 
 const catchError = (ctx, error) => {
-  ctx.session.registrationStep = 'initial';
+  ctx.session.step = 'initial';
   if (error.response) {
     const { status, title, validationErrors } = error.response.data.errors;
     ctx.reply(
@@ -72,13 +74,13 @@ bot.start(ctx => {
 bot.hears('Log In', ctx => {
   initializeSession(ctx);
   ctx.reply('Enter your email:');
-  ctx.session.registrationStep = 'login_email';
+  ctx.session.step = 'login_email';
 });
 
 bot.hears('Sign Up', ctx => {
   initializeSession(ctx);
   ctx.reply('Enter your login:');
-  ctx.session.registrationStep = 'signup_username';
+  ctx.session.step = 'signup_username';
 });
 
 bot.hears('Log Out', ctx => {
@@ -120,6 +122,62 @@ bot.action('getAccount', ctx => {
   showMenuKeyboard(ctx, accountMenuKeyboard);
 });
 
+bot.action('changeName', ctx => {
+  if (ctx.session.isLogin) {
+    ctx.session.step = 'change_name';
+    editMessage(ctx, 'Enter new name');
+  } else {
+    ctx.reply('Need authorization');
+  }
+});
+
+bot.action('changePassword', ctx => {
+  if (ctx.session.isLogin) {
+    ctx.session.step = 'change_password';
+    editMessage(ctx, 'Enter new password');
+  } else {
+    ctx.reply('Need authorization');
+  }
+});
+
+bot.action('changeEmail', ctx => {
+  if (ctx.session.isLogin) {
+    ctx.session.step = 'change_email';
+    editMessage(ctx, 'Enter new email');
+  } else {
+    ctx.reply('Need authorization');
+  }
+});
+
+bot.action('changeAllInfo', ctx => {
+  if (ctx.session.isLogin) {
+    ctx.session.step = 'change_all_info';
+    editMessage(ctx, 'Enter new all info');
+  } else {
+    ctx.reply('Need authorization');
+  }
+});
+
+bot.action('getFullInfo', ctx => {
+  if (ctx.session.isLogin) {
+    const fullInfo = ctx.session.login
+      ? { ...ctx.session.login }
+      : { ...ctx.session.signup };
+    console.log('fullInfo :>> ', fullInfo);
+
+    const fullInfoText = Object.keys(fullInfo)
+      .map(key => `${key}: ${fullInfo[key]}`)
+      .join('\n');
+    console.log(fullInfoText);
+
+    const uniqueIdentifier = Math.random().toString(36).substring(7);
+    const text = `Full Info (${uniqueIdentifier}):\n\n${fullInfoText}`;
+    editMessage(ctx, text);
+  } else {
+    ctx.reply('Need authorization');
+  }
+});
+
 bot.on('callback_query', async ctx => {
   if (ctx.session.isLogin) {
     const data = ctx.callbackQuery.data;
@@ -133,7 +191,11 @@ bot.on('callback_query', async ctx => {
           `/products/?type=${type}&&limit=${itemsPerPage}&&offset=${offset}`
         );
         console.log('response.data.data :>> ', data.data);
-        if (data.data.next) {
+        ctx.session.items = [...data.data];
+        if (itemsPerPage + 1 === ctx.session.items.length) {
+          data.data.pop();
+          menuPrevNext(ctx, data, type, currentPage);
+        } else {
           menuPrevNext(ctx, data, type, currentPage);
         }
       } catch (error) {
@@ -141,35 +203,16 @@ bot.on('callback_query', async ctx => {
       }
     } else if (data.startsWith('getProduct_')) {
       const productId = data.replace('getProduct_', '');
-      const response = await httpClient.get(`/products/${productId}`);
-      const productDetails = response.data.data;
-
+      console.log('ctx.session.items :>> ', ctx.session.items);
+      const productDetails = ctx.session.items.find(i => i._id === productId);
+      console.log('productDetails :>> ', productDetails);
       const productDetailsText = Object.entries(productDetails)
         .map(([key, value]) => `${key}: ${value}`)
         .join('\n');
 
       const uniqueIdentifier = Math.random().toString(36).substring(7);
-
-      if (ctx.session.messageId) {
-        try {
-          await ctx.telegram.editMessageText(
-            ctx.chat.id,
-            ctx.session.messageId,
-            null,
-            `Product Information (${uniqueIdentifier}):\n\n${productDetailsText}`
-          );
-        } catch (error) {
-          const sentMessage = await ctx.reply(
-            `Product Information (${uniqueIdentifier}):\n\n${productDetailsText}`
-          );
-          ctx.session.messageId = sentMessage.message_id;
-        }
-      } else {
-        const sentMessage = await ctx.reply(
-          `Product Information (${uniqueIdentifier}):\n\n${productDetailsText}`
-        );
-        ctx.session.messageId = sentMessage.message_id;
-      }
+      const text = `Product Information (${uniqueIdentifier}):\n\n${productDetailsText}`;
+      editMessage(ctx, text);
     } else if (data.startsWith('prevPageBTN_')) {
       console.log('prevPageBTN_');
       const type = data.replace('prevPageBTN_', '');
@@ -180,7 +223,13 @@ bot.on('callback_query', async ctx => {
           const { data } = await httpClient.get(
             `/products/?type=${type}&&limit=${itemsPerPage}&&offset=${offset}`
           );
-          menuPrevNext(ctx, data, type, currentPage);
+          ctx.session.items = [...data.data];
+          if (itemsPerPage + 1 === ctx.session.items.length) {
+            data.data.pop();
+            menuPrevNext(ctx, data, type, currentPage);
+          } else {
+            menuPrevNext(ctx, data, type, currentPage);
+          }
         } catch (error) {
           catchError(ctx, error);
         }
@@ -188,20 +237,26 @@ bot.on('callback_query', async ctx => {
     } else if (data.startsWith('nextPageBTN_')) {
       console.log('nextPageBTN_');
       const type = data.replace('nextPageBTN_', '');
-      const currentPage = ++ctx.session.typePageList[type];
-      try {
-        const offset = (currentPage - 1) * itemsPerPage;
-        const { data } = await httpClient.get(
-          `/products/?type=${type}&&limit=${itemsPerPage}&&offset=${offset}`
-        );
-        console.log('response.data.data :>> ', data.data);
-        if (data.data.next) {
-          menuPrevNext(ctx, data, type, currentPage);
-        } else {
-          --ctx.session.typePageList[type];
+      console.log('ctx.session.items.length :>> ', ctx.session.items.length);
+      console.log('itemsPerPage + 1 :>> ', itemsPerPage + 1);
+      if (itemsPerPage + 1 === ctx.session.items.length) {
+        const currentPage = ++ctx.session.typePageList[type];
+        try {
+          const offset = (currentPage - 1) * itemsPerPage;
+          const { data } = await httpClient.get(
+            `/products/?type=${type}&&limit=${itemsPerPage}&&offset=${offset}`
+          );
+          console.log('response.data.data :>> ', data.data);
+          ctx.session.items = [...data.data];
+          if (itemsPerPage + 1 === ctx.session.items.length) {
+            data.data.pop();
+            menuPrevNext(ctx, data, type, currentPage);
+          } else {
+            menuPrevNext(ctx, data, type, currentPage);
+          }
+        } catch (error) {
+          catchError(ctx, error);
         }
-      } catch (error) {
-        catchError(ctx, error);
       }
     }
   } else {
@@ -211,8 +266,9 @@ bot.on('callback_query', async ctx => {
 
 bot.on('text', async ctx => {
   const messageText = ctx.message.text;
-  const registrationStep = ctx.session.registrationStep || '';
-  switch (registrationStep) {
+  const { session } = ctx;
+  const step = session.step || '';
+  switch (step) {
     case 'login_email':
       handleLoginEmailStep(ctx, messageText);
       break;
@@ -230,6 +286,28 @@ bot.on('text', async ctx => {
       break;
     case 'signup_role':
       await handleSignupRoleStep(ctx, messageText);
+      break;
+    case 'change_name':
+      console.log('change_name');
+      session.updateData = {};
+      session.updateData.name = messageText;
+      handleChangeStep(ctx);
+      break;
+    case 'change_password':
+      console.log('change_password');
+      session.updateData = {};
+      session.updateData.password = messageText;
+      handleChangeStep(ctx);
+      break;
+    case 'change_email':
+      console.log('change_email');
+      session.updateData = {};
+      session.updateData.email = messageText;
+      handleChangeStep(ctx);
+      break;
+    case 'change_all_info':
+      console.log('change_all_info');
+      // handleChangeAllInfoStep(ctx, messageText);
       break;
     default:
       ctx.reply('Please select an action.');

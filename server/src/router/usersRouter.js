@@ -11,4 +11,8 @@ usersRouter
   .route('/login')
   .post(validators.validateLogInData, usersController.loginUser);
 
+usersRouter
+  .route('/:email')
+  .put(validators.validateUpdateData, usersController.updateUser);
+
 module.exports = usersRouter;
