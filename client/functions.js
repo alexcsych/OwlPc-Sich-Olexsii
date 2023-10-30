@@ -27,17 +27,17 @@ const catchError = (ctx, error) => {
   }
 };
 
-function initializeSession ({ session }) {
-  session = {};
-  session.isLogin = false;
-  session.typePageList = {
+function initializeSession (ctx) {
+  ctx.session = {};
+  ctx.session.isLogin = false;
+  ctx.session.typePageList = {
     'Video Card': 1,
     CPU: 1,
     Case: 1,
     Motherboard: 1,
     RAM: 1,
   };
-  console.log('ctx.session :>> ', session);
+  console.log('ctx.session :>> ', ctx.session);
 }
 
 function handleLoginEmailStep (ctx, messageText) {
@@ -113,7 +113,8 @@ async function handleSignupRoleStep (ctx, messageText) {
     const { data } = await httpClient.post(`/users/signup`, userSignupData);
     if (data.data) {
       session.isLogin = true;
-      delete session.signup.password;
+      const { password, ...rest } = session.signup;
+      session.signup = { ...rest };
       ctx.reply('Registration completed successfully! Choose an action:', {
         reply_markup: {
           keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]],
