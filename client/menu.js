@@ -3,7 +3,7 @@ const mainMenuKeyboard = {
     inline_keyboard: [
       [
         { text: 'Products', callback_data: 'getProducts' },
-        { text: 'Orders', callback_data: 'getOrders' },
+        // { text: 'Orders', callback_data: 'getOrders' },
         { text: 'Account', callback_data: 'getAccount' },
       ],
     ],

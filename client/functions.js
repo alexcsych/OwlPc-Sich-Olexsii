@@ -200,7 +200,7 @@ const handleChangeStep = async ctx => {
         session.login = { ...data.data };
         console.log('session.login :>> ', session.login);
       }
-      ctx.reply('User was updated');
+      await ctx.reply('User was updated');
       deleteChatMessage(ctx, ctx.session.menuId);
       deleteChatMessage(ctx, ctx.session.messageId);
       const sentMessage = await ctx.reply('Main menu', accountMenuKeyboard);
