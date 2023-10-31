@@ -27,6 +27,7 @@ const bot = new Telegraf(BOT_TOKEN);
 
 const showMenuKeyboard = async (ctx, keyboard) => {
   if (ctx.session.isLogin) {
+    ctx.session.step = '';
     deleteChatMessage(ctx, ctx.session.messageId);
     ctx.editMessageText('Main menu', keyboard);
   } else {
@@ -114,9 +115,9 @@ bot.action('getMenu', ctx => {
   showMenuKeyboard(ctx, mainMenuKeyboard);
 });
 
-bot.action('getOrders', ctx => {
-  showMenuKeyboard(ctx, ordersMenuKeyboard);
-});
+// bot.action('getOrders', ctx => {
+//   showMenuKeyboard(ctx, ordersMenuKeyboard);
+// });
 
 bot.action('getAccount', ctx => {
   showMenuKeyboard(ctx, accountMenuKeyboard);
@@ -124,6 +125,7 @@ bot.action('getAccount', ctx => {
 
 bot.action('changeName', ctx => {
   if (ctx.session.isLogin) {
+    ctx.session.isChangeAllInfo = false;
     ctx.session.step = 'change_name';
     editMessage(ctx, 'Enter new name');
   } else {
@@ -133,6 +135,7 @@ bot.action('changeName', ctx => {
 
 bot.action('changePassword', ctx => {
   if (ctx.session.isLogin) {
+    ctx.session.isChangeAllInfo = false;
     ctx.session.step = 'change_password';
     editMessage(ctx, 'Enter new password');
   } else {
@@ -142,6 +145,7 @@ bot.action('changePassword', ctx => {
 
 bot.action('changeEmail', ctx => {
   if (ctx.session.isLogin) {
+    ctx.session.isChangeAllInfo = false;
     ctx.session.step = 'change_email';
     editMessage(ctx, 'Enter new email');
   } else {
@@ -151,8 +155,9 @@ bot.action('changeEmail', ctx => {
 
 bot.action('changeAllInfo', ctx => {
   if (ctx.session.isLogin) {
-    ctx.session.step = 'change_all_info';
-    editMessage(ctx, 'Enter new all info');
+    ctx.session.isChangeAllInfo = true;
+    ctx.session.step = 'change_name';
+    editMessage(ctx, 'Enter new name');
   } else {
     ctx.reply('Need authorization');
   }
@@ -160,6 +165,7 @@ bot.action('changeAllInfo', ctx => {
 
 bot.action('getFullInfo', ctx => {
   if (ctx.session.isLogin) {
+    ctx.session.step = '';
     const fullInfo = ctx.session.login
       ? { ...ctx.session.login }
       : { ...ctx.session.signup };
@@ -205,8 +211,9 @@ bot.on('callback_query', async ctx => {
       const productId = data.replace('getProduct_', '');
       console.log('ctx.session.items :>> ', ctx.session.items);
       const productDetails = ctx.session.items.find(i => i._id === productId);
+      const { _id, ...rest } = productDetails;
       console.log('productDetails :>> ', productDetails);
-      const productDetailsText = Object.entries(productDetails)
+      const productDetailsText = Object.entries(rest)
         .map(([key, value]) => `${key}: ${value}`)
         .join('\n');
 
@@ -291,24 +298,37 @@ bot.on('text', async ctx => {
       console.log('change_name');
       session.updateData = {};
       session.updateData.name = messageText;
-      handleChangeStep(ctx);
+      if (session.isChangeAllInfo) {
+        ctx.reply('Enter new password');
+        session.step = 'change_password';
+      } else {
+        handleChangeStep(ctx);
+      }
       break;
     case 'change_password':
       console.log('change_password');
-      session.updateData = {};
-      session.updateData.password = messageText;
-      handleChangeStep(ctx);
+      if (session.isChangeAllInfo) {
+        session.updateData.password = messageText;
+        ctx.reply('Enter new email');
+        session.step = 'change_email';
+      } else {
+        session.updateData = {};
+        session.updateData.password = messageText;
+        handleChangeStep(ctx);
+      }
       break;
     case 'change_email':
       console.log('change_email');
-      session.updateData = {};
+      if (!session.isChangeAllInfo) {
+        session.updateData = {};
+      }
       session.updateData.email = messageText;
       handleChangeStep(ctx);
       break;
-    case 'change_all_info':
-      console.log('change_all_info');
-      // handleChangeAllInfoStep(ctx, messageText);
-      break;
+    // case 'change_all_info':
+    //   console.log('change_all_info');
+    //   // handleChangeAllInfoStep(ctx, messageText);
+    //   break;
     default:
       ctx.reply('Please select an action.');
   }
