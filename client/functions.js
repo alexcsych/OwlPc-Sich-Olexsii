@@ -29,6 +29,8 @@ const catchError = (ctx, error) => {
 
 function initializeSession (ctx) {
   ctx.session = {};
+  ctx.session.user = {};
+  ctx.session.cartProductsId = [];
   ctx.session.isLogin = false;
   ctx.session.typePageList = {
     'Video Card': 1,
@@ -36,6 +38,7 @@ function initializeSession (ctx) {
     Case: 1,
     Motherboard: 1,
     RAM: 1,
+    cart: 1,
   };
   console.log('ctx.session :>> ', ctx.session);
 }
@@ -60,16 +63,16 @@ async function handleLoginPasswordStep (ctx, messageText) {
   try {
     await logInSchem.validate(userLoginData, { abortEarly: false });
     const { data } = await httpClient.post(`/users/login`, userLoginData);
-    if (data.data) {
-      session.isLogin = true;
-      session.login = { ...data.data };
-      ctx.reply('Login successful! Choose an action:', {
-        reply_markup: {
-          keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]],
-          resize_keyboard: true,
-        },
-      });
-    }
+
+    session.isLogin = true;
+    session.user = { ...data.data.user };
+    session.cartProductsId = [...data.data.cart];
+    ctx.reply('Login successful! Choose an action:', {
+      reply_markup: {
+        keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]],
+        resize_keyboard: true,
+      },
+    });
   } catch (error) {
     catchError(ctx, error);
   }
@@ -105,23 +108,21 @@ async function handleSignupRoleStep (ctx, messageText) {
   session.step = '';
   const userSignupData = {
     ...session.signup,
-    cart: [],
   };
 
   try {
     await signUpSchem.validate(userSignupData, { abortEarly: false });
     const { data } = await httpClient.post(`/users/signup`, userSignupData);
-    if (data.data) {
-      session.isLogin = true;
-      const { password, ...rest } = session.signup;
-      session.signup = { ...rest };
-      ctx.reply('Registration completed successfully! Choose an action:', {
-        reply_markup: {
-          keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]],
-          resize_keyboard: true,
-        },
-      });
-    }
+
+    session.isLogin = true;
+    session.user = { ...data.data.user };
+    session.cartProductsId = [...data.data.cart];
+    ctx.reply('Registration completed successfully! Choose an action:', {
+      reply_markup: {
+        keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]],
+        resize_keyboard: true,
+      },
+    });
   } catch (error) {
     catchError(ctx, error);
   }
@@ -158,21 +159,23 @@ const deleteChatMessage = async (ctx, id) => {
   }
 };
 
-const editMessage = async (ctx, text) => {
-  if (ctx.session.messageId) {
-    try {
-      await ctx.telegram.editMessageText(
-        ctx.chat.id,
-        ctx.session.messageId,
-        null,
-        text
-      );
-    } catch (error) {
-      const sentMessage = await ctx.reply(text);
-      ctx.session.messageId = sentMessage.message_id;
-    }
-  } else {
-    const sentMessage = await ctx.reply(text);
+const editMessage = async (ctx, text, inlineBtn) => {
+  const chatId = ctx.chat.id;
+  const messageId = ctx.session.messageId;
+
+  try {
+    const options = !inlineBtn ? null : inlineBtn;
+    const sentMessage = await ctx.telegram.editMessageText(
+      chatId,
+      messageId,
+      null,
+      text,
+      options
+    );
+    ctx.session.messageId = sentMessage.message_id;
+  } catch (error) {
+    const options = !inlineBtn ? {} : inlineBtn;
+    const sentMessage = await ctx.reply(text, options);
     ctx.session.messageId = sentMessage.message_id;
   }
 };
@@ -187,25 +190,18 @@ const handleChangeStep = async ctx => {
     await updateUserSchem.validate(userUpdateData, { abortEarly: false });
     console.log('valid :>> ');
     const { data } = await httpClient.put(
-      `/users/${session.signup ? session.signup.email : session.login.email}`,
+      `/users/${session.user._id}`,
       userUpdateData
     );
-    console.log('data');
-    if (data.data) {
-      console.log('data.data');
-      if (session.signup) {
-        session.signup = { ...data.data };
-        console.log('session.signup :>> ', session.signup);
-      } else {
-        session.login = { ...data.data };
-        console.log('session.login :>> ', session.login);
-      }
-      await ctx.reply('User was updated');
-      deleteChatMessage(ctx, ctx.session.menuId);
-      deleteChatMessage(ctx, ctx.session.messageId);
-      const sentMessage = await ctx.reply('Main menu', accountMenuKeyboard);
-      ctx.session.menuId = sentMessage.message_id;
-    }
+    console.log('data.data');
+    session.user = { ...data.data };
+    console.log('session.user :>> ', session.user);
+
+    await ctx.reply('User was updated');
+    deleteChatMessage(ctx, ctx.session.menuId);
+    deleteChatMessage(ctx, ctx.session.messageId);
+    const sentMessage = await ctx.reply('Main menu', accountMenuKeyboard);
+    ctx.session.menuId = sentMessage.message_id;
   } catch (error) {
     catchError(ctx, error);
   }

@@ -1,7 +1,7 @@
 require('dotenv').config();
 const bcrypt = require('bcrypt');
 const createHttpError = require('http-errors');
-const { User } = require('./../models');
+const { User, Cart } = require('./../models');
 
 const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS, 10);
 
@@ -19,8 +19,13 @@ module.exports.createUser = async (req, res, next) => {
     if (!createdUser) {
       return next(createHttpError(400, 'Bad Request'));
     }
+    const { password, ...rest } = createdUser;
 
-    res.status(201).send({ data: createdUser });
+    const cart = await Cart.find({ user: rest._doc._id });
+    const newCart = cart.map(c => c.product);
+    console.log('newCart :>> ', newCart);
+
+    res.status(201).send({ data: { user: rest._doc, cart: newCart } });
   } catch (err) {
     next(err);
   }
@@ -33,7 +38,7 @@ module.exports.loginUser = async (req, res, next) => {
 
   try {
     const foundUser = await User.findOne({ email: body.email }).select(
-      '-_id -cart -createdAt -updatedAt -__v'
+      '-createdAt -updatedAt -__v'
     );
 
     if (!foundUser) {
@@ -51,10 +56,14 @@ module.exports.loginUser = async (req, res, next) => {
     }
 
     console.log('foundUser :>> ', foundUser);
-    const newFoundUser = { ...foundUser._doc, password: undefined };
-    console.log('newFoundUser :>> ', newFoundUser);
+    const { password, ...rest } = foundUser;
+    console.log('newFoundUser :>> ', rest);
 
-    res.status(200).send({ data: newFoundUser });
+    const cart = await Cart.find({ user: rest._doc._id });
+    const newCart = cart.map(c => c.product);
+    console.log('newCart :>> ', newCart);
+
+    res.status(200).send({ data: { user: rest._doc, cart: newCart } });
   } catch (err) {
     next(err);
   }
@@ -72,7 +81,7 @@ module.exports.updateUser = async (req, res, next) => {
     }
     const updatedUser = await User.findOneAndUpdate(req.params, req.body, {
       new: true,
-    }).select('-_id -password -cart -createdAt -updatedAt -__v');
+    }).select('-password -createdAt -updatedAt -__v');
     console.log('updatedUser :>> ', updatedUser);
     if (!updatedUser) {
       return next(createHttpError(404, 'User Not Found'));
@@ -83,3 +92,24 @@ module.exports.updateUser = async (req, res, next) => {
     next(err);
   }
 };
+
+// module.exports.addToCart = async (req, res, next) => {
+//   console.log('addToCart');
+//   console.log('req.query :>> ', req.query);
+//   console.log('req.body :>> ', req.body);
+//   const { email } = req.query;
+//   const { productId } = req.body;
+//   try {
+//     const updatedUser = await User.findOneAndUpdate(email, req.body, {
+//       new: true,
+//     }).select('-_id -password -createdAt -updatedAt -__v');
+//     console.log('updatedUser :>> ', updatedUser);
+//     if (!updatedUser) {
+//       return next(createHttpError(404, 'User Not Found'));
+//     }
+
+//     return res.status(200).send({ data: updatedUser });
+//   } catch (err) {
+//     next(err);
+//   }
+// };

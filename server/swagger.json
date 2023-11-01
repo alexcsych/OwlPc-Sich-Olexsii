@@ -106,20 +106,13 @@
         },
         "role": {
           "type": "string"
-        },
-        "cart": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
         }
       },
       "required": [
         "name",
         "email",
         "password",
-        "role",
-        "cart"
+        "role"
       ]
     },
     "UserLogin": {
@@ -151,12 +144,6 @@
         },
         "role": {
           "type": "string"
-        },
-        "cart": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
         },
         "createdAt": {
           "type": "string"

@@ -27,19 +27,6 @@ const Schema = new mongoose.Schema(
       required: true,
       enum: validRoles,
     },
-    cart: [
-      {
-        product: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'Product',
-          required: true,
-        },
-        quantity: {
-          type: Number,
-          required: true,
-        },
-      },
-    ],
   },
   {
     timestamps: true,

@@ -3,14 +3,12 @@
     "name": "Test User 1",
     "email": "testuser1@example.com",
     "password": "password1",
-    "role": "customer",
-    "cart": []
+    "role": "customer"
   },
   {
     "name": "Test User 2",
     "email": "testuser2@example.com",
     "password": "password2",
-    "role": "creator",
-    "cart": []
+    "role": "creator"
   }
 ]

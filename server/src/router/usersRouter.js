@@ -12,7 +12,7 @@ usersRouter
   .post(validators.validateLogInData, usersController.loginUser);
 
 usersRouter
-  .route('/:email')
+  .route('/:_id')
   .put(validators.validateUpdateData, usersController.updateUser);
 
 module.exports = usersRouter;

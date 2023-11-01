@@ -3,7 +3,6 @@ const { Telegraf, session } = require('telegraf');
 const {
   mainMenuKeyboard,
   productsMenuKeyboard,
-  ordersMenuKeyboard,
   accountMenuKeyboard,
   itemsPerPage,
 } = require('./menu');
@@ -115,9 +114,25 @@ bot.action('getMenu', ctx => {
   showMenuKeyboard(ctx, mainMenuKeyboard);
 });
 
-// bot.action('getOrders', ctx => {
-//   showMenuKeyboard(ctx, ordersMenuKeyboard);
-// });
+bot.action('getCart', async ctx => {
+  try {
+    const type = 'cart';
+    const currentPage = ctx.session.typePageList[type] || 1;
+    const offset = (currentPage - 1) * itemsPerPage;
+    const { data } = await httpClient.get(
+      `/carts/${ctx.session.user._id}?limit=${itemsPerPage}&&offset=${offset}`
+    );
+    console.log('data.data :>> ', data.data);
+
+    ctx.session.cart = data.data;
+    if (itemsPerPage + 1 === ctx.session.cart.length) {
+      data.data.pop();
+    }
+    menuPrevNext(ctx, data, type, currentPage);
+  } catch (error) {
+    catchError(ctx, error);
+  }
+});
 
 bot.action('getAccount', ctx => {
   showMenuKeyboard(ctx, accountMenuKeyboard);
@@ -166,16 +181,9 @@ bot.action('changeAllInfo', ctx => {
 bot.action('getFullInfo', ctx => {
   if (ctx.session.isLogin) {
     ctx.session.step = '';
-    const fullInfo = ctx.session.login
-      ? { ...ctx.session.login }
-      : { ...ctx.session.signup };
-    console.log('fullInfo :>> ', fullInfo);
-
-    const fullInfoText = Object.keys(fullInfo)
-      .map(key => `${key}: ${fullInfo[key]}`)
-      .join('\n');
-    console.log(fullInfoText);
-
+    console.log('ctx.session.user :>> ', ctx.session.user);
+    const { name, email, role } = ctx.session.user;
+    const fullInfoText = `name: ${name}\nemail: ${email}\nrole: ${role}`;
     const uniqueIdentifier = Math.random().toString(36).substring(7);
     const text = `Full Info (${uniqueIdentifier}):\n\n${fullInfoText}`;
     editMessage(ctx, text);
@@ -200,10 +208,8 @@ bot.on('callback_query', async ctx => {
         ctx.session.items = [...data.data];
         if (itemsPerPage + 1 === ctx.session.items.length) {
           data.data.pop();
-          menuPrevNext(ctx, data, type, currentPage);
-        } else {
-          menuPrevNext(ctx, data, type, currentPage);
         }
+        menuPrevNext(ctx, data, type, currentPage);
       } catch (error) {
         catchError(ctx, error);
       }
@@ -219,7 +225,35 @@ bot.on('callback_query', async ctx => {
 
       const uniqueIdentifier = Math.random().toString(36).substring(7);
       const text = `Product Information (${uniqueIdentifier}):\n\n${productDetailsText}`;
-      editMessage(ctx, text);
+      const addToCartKeyboard = {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Add to Cart', callback_data: `addToCart_${productId}` }],
+          ],
+        },
+      };
+      editMessage(ctx, text, addToCartKeyboard);
+    } else if (data.startsWith('addToCart_')) {
+      const productId = data.replace('addToCart_', '');
+      console.log(
+        'ctx.session.cartProductsId :>> ',
+        ctx.session.cartProductsId
+      );
+      if (!ctx.session.cartProductsId.includes(productId)) {
+        try {
+          const { data } = await httpClient.post(`/carts`, {
+            user: ctx.session.user._id,
+            product: productId,
+          });
+          ctx.session.cartProductsId.push(data.data.product);
+          console.log(
+            'ctx.session.cartProductsId :>> ',
+            ctx.session.cartProductsId
+          );
+        } catch (error) {
+          catchError(ctx, error);
+        }
+      }
     } else if (data.startsWith('prevPageBTN_')) {
       console.log('prevPageBTN_');
       const type = data.replace('prevPageBTN_', '');
@@ -233,10 +267,8 @@ bot.on('callback_query', async ctx => {
           ctx.session.items = [...data.data];
           if (itemsPerPage + 1 === ctx.session.items.length) {
             data.data.pop();
-            menuPrevNext(ctx, data, type, currentPage);
-          } else {
-            menuPrevNext(ctx, data, type, currentPage);
           }
+          menuPrevNext(ctx, data, type, currentPage);
         } catch (error) {
           catchError(ctx, error);
         }
@@ -257,10 +289,8 @@ bot.on('callback_query', async ctx => {
           ctx.session.items = [...data.data];
           if (itemsPerPage + 1 === ctx.session.items.length) {
             data.data.pop();
-            menuPrevNext(ctx, data, type, currentPage);
-          } else {
-            menuPrevNext(ctx, data, type, currentPage);
           }
+          menuPrevNext(ctx, data, type, currentPage);
         } catch (error) {
           catchError(ctx, error);
         }
@@ -325,10 +355,6 @@ bot.on('text', async ctx => {
       session.updateData.email = messageText;
       handleChangeStep(ctx);
       break;
-    // case 'change_all_info':
-    //   console.log('change_all_info');
-    //   // handleChangeAllInfoStep(ctx, messageText);
-    //   break;
     default:
       ctx.reply('Please select an action.');
   }
