@@ -149,6 +149,27 @@ const menuPrevNext = (ctx, { data }, type, currentPage) => {
   ctx.editMessageText('Main menu', { reply_markup: replyMarkup });
 };
 
+const menuPrevNextCart = (ctx, { data }, type, currentPage) => {
+  const inlineKeyboard = data.map(pr => ({
+    text: pr.name,
+    callback_data: `getCartProduct_${pr._id}`,
+  }));
+  const groupedButtons = [];
+  while (inlineKeyboard.length > 0) {
+    groupedButtons.push(inlineKeyboard.splice(0, 3));
+  }
+  groupedButtons.push([
+    { text: '<', callback_data: `prevPageBTN_${type}` },
+    { text: `Current Page ${currentPage}`, callback_data: `page` },
+    { text: '>', callback_data: `nextPageBTN_${type}` },
+  ]);
+  groupedButtons.push([{ text: '<<', callback_data: 'getMenu' }]);
+  const replyMarkup = {
+    inline_keyboard: groupedButtons,
+  };
+  editMessage(ctx, 'Main menu', { reply_markup: replyMarkup }, true);
+};
+
 const deleteChatMessage = async (ctx, id) => {
   if (id) {
     try {
@@ -159,9 +180,11 @@ const deleteChatMessage = async (ctx, id) => {
   }
 };
 
-const editMessage = async (ctx, text, inlineBtn) => {
+const editMessage = async (ctx, text, inlineBtn, isRemoveFromCart) => {
   const chatId = ctx.chat.id;
-  const messageId = ctx.session.messageId;
+  const messageId = isRemoveFromCart
+    ? ctx.session.menuId
+    : ctx.session.messageId;
 
   try {
     const options = !inlineBtn ? null : inlineBtn;
@@ -172,11 +195,15 @@ const editMessage = async (ctx, text, inlineBtn) => {
       text,
       options
     );
-    ctx.session.messageId = sentMessage.message_id;
+    isRemoveFromCart
+      ? (ctx.session.menuId = sentMessage.message_id)
+      : (ctx.session.messageId = sentMessage.message_id);
   } catch (error) {
     const options = !inlineBtn ? {} : inlineBtn;
     const sentMessage = await ctx.reply(text, options);
-    ctx.session.messageId = sentMessage.message_id;
+    isRemoveFromCart
+      ? (ctx.session.menuId = sentMessage.message_id)
+      : (ctx.session.messageId = sentMessage.message_id);
   }
 };
 
@@ -217,6 +244,7 @@ module.exports = {
   handleSignupEmailStep,
   handleSignupRoleStep,
   menuPrevNext,
+  menuPrevNextCart,
   deleteChatMessage,
   editMessage,
   handleChangeStep,

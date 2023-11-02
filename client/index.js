@@ -19,6 +19,7 @@ const {
   deleteChatMessage,
   editMessage,
   handleChangeStep,
+  menuPrevNextCart,
 } = require('./functions');
 
 const { BOT_TOKEN } = process.env;
@@ -36,7 +37,7 @@ const showMenuKeyboard = async (ctx, keyboard) => {
 
 const catchError = (ctx, error) => {
   ctx.session.step = 'initial';
-  if (error.response) {
+  if (error.response && error.response.data && error.response.data.errors) {
     const { status, title, validationErrors } = error.response.data.errors;
     ctx.reply(
       `Error\n\nstatus:\n${status}\n\ntitle:\n${title}\n\n${
@@ -115,22 +116,26 @@ bot.action('getMenu', ctx => {
 });
 
 bot.action('getCart', async ctx => {
-  try {
-    const type = 'cart';
-    const currentPage = ctx.session.typePageList[type] || 1;
-    const offset = (currentPage - 1) * itemsPerPage;
-    const { data } = await httpClient.get(
-      `/carts/${ctx.session.user._id}?limit=${itemsPerPage}&&offset=${offset}`
-    );
-    console.log('data.data :>> ', data.data);
+  if (ctx.session.isLogin) {
+    try {
+      const type = 'cart';
+      const currentPage = ctx.session.typePageList[type] || 1;
+      const offset = (currentPage - 1) * itemsPerPage;
+      const { data } = await httpClient.get(
+        `/carts/${ctx.session.user._id}?limit=${itemsPerPage}&&offset=${offset}`
+      );
+      console.log('data.data :>> ', data.data);
 
-    ctx.session.cart = data.data;
-    if (itemsPerPage + 1 === ctx.session.cart.length) {
-      data.data.pop();
+      ctx.session.cart = [...data.data];
+      if (itemsPerPage + 1 === ctx.session.cart.length) {
+        data.data.pop();
+      }
+      menuPrevNextCart(ctx, data, type, currentPage);
+    } catch (error) {
+      catchError(ctx, error);
     }
-    menuPrevNext(ctx, data, type, currentPage);
-  } catch (error) {
-    catchError(ctx, error);
+  } else {
+    ctx.reply('Need authorization');
   }
 });
 
@@ -217,6 +222,7 @@ bot.on('callback_query', async ctx => {
       const productId = data.replace('getProduct_', '');
       console.log('ctx.session.items :>> ', ctx.session.items);
       const productDetails = ctx.session.items.find(i => i._id === productId);
+      console.log('productDetails :>> ', productDetails);
       const { _id, ...rest } = productDetails;
       console.log('productDetails :>> ', productDetails);
       const productDetailsText = Object.entries(rest)
@@ -229,6 +235,33 @@ bot.on('callback_query', async ctx => {
         reply_markup: {
           inline_keyboard: [
             [{ text: 'Add to Cart', callback_data: `addToCart_${productId}` }],
+          ],
+        },
+      };
+      editMessage(ctx, text, addToCartKeyboard);
+    } else if (data.startsWith('getCartProduct_')) {
+      const productId = data.replace('getCartProduct_', '');
+      console.log('ctx.session.cart :>> ', ctx.session.cart);
+      console.log('productId :>> ', productId);
+      const productDetails = ctx.session.cart.find(i => i._id === productId);
+      console.log('productDetails :>> ', productDetails);
+      const { _id, ...rest } = productDetails;
+      console.log('productDetails :>> ', productDetails);
+      const productDetailsText = Object.entries(rest)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join('\n');
+
+      const uniqueIdentifier = Math.random().toString(36).substring(7);
+      const text = `Product Information (${uniqueIdentifier}):\n\n${productDetailsText}`;
+      const addToCartKeyboard = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: 'Remove from Cart',
+                callback_data: `removeFromCart_${productId}`,
+              },
+            ],
           ],
         },
       };
@@ -254,6 +287,47 @@ bot.on('callback_query', async ctx => {
           catchError(ctx, error);
         }
       }
+    } else if (data.startsWith('removeFromCart_')) {
+      const productId = data.replace('removeFromCart_', '');
+      console.log(
+        'ctx.session.cartProductsId :>> ',
+        ctx.session.cartProductsId
+      );
+      if (ctx.session.cartProductsId.includes(productId)) {
+        try {
+          await httpClient.delete(
+            `/carts?user=${ctx.session.user._id}&&product=${productId}`
+          );
+          console.log(
+            'ctx.session.cartProductsId.length :>> ',
+            ctx.session.cartProductsId.length
+          );
+          ctx.session.cartProductsId = ctx.session.cartProductsId.filter(
+            cpi => cpi !== productId
+          );
+          console.log(
+            'ctx.session.cartProductsId.length :>> ',
+            ctx.session.cartProductsId.length
+          );
+          await ctx.deleteMessage();
+
+          const type = 'cart';
+          const currentPage = ctx.session.typePageList[type] || 1;
+          const offset = (currentPage - 1) * itemsPerPage;
+          const { data } = await httpClient.get(
+            `/carts/${ctx.session.user._id}?limit=${itemsPerPage}&&offset=${offset}`
+          );
+          console.log('data.data :>> ', data.data);
+
+          ctx.session.cart = [...data.data];
+          if (itemsPerPage + 1 === ctx.session.cart.length) {
+            data.data.pop();
+          }
+          menuPrevNextCart(ctx, data, type, currentPage);
+        } catch (error) {
+          catchError(ctx, error);
+        }
+      }
     } else if (data.startsWith('prevPageBTN_')) {
       console.log('prevPageBTN_');
       const type = data.replace('prevPageBTN_', '');
@@ -262,13 +336,19 @@ bot.on('callback_query', async ctx => {
         try {
           const offset = (currentPage - 1) * itemsPerPage;
           const { data } = await httpClient.get(
-            `/products/?type=${type}&&limit=${itemsPerPage}&&offset=${offset}`
+            `/${
+              type === 'cart' ? `carts/${ctx.session.user._id}` : 'products'
+            }/?type=${type}&&limit=${itemsPerPage}&&offset=${offset}`
           );
-          ctx.session.items = [...data.data];
-          if (itemsPerPage + 1 === ctx.session.items.length) {
+          type === 'cart'
+            ? (ctx.session.cart = [...data.data])
+            : (ctx.session.items = [...data.data]);
+          if (itemsPerPage + 1 === data.data.length) {
             data.data.pop();
           }
-          menuPrevNext(ctx, data, type, currentPage);
+          type === 'cart'
+            ? menuPrevNextCart(ctx, data, type, currentPage)
+            : menuPrevNext(ctx, data, type, currentPage);
         } catch (error) {
           catchError(ctx, error);
         }
@@ -276,21 +356,26 @@ bot.on('callback_query', async ctx => {
     } else if (data.startsWith('nextPageBTN_')) {
       console.log('nextPageBTN_');
       const type = data.replace('nextPageBTN_', '');
-      console.log('ctx.session.items.length :>> ', ctx.session.items.length);
-      console.log('itemsPerPage + 1 :>> ', itemsPerPage + 1);
-      if (itemsPerPage + 1 === ctx.session.items.length) {
+      let products = type === 'cart' ? ctx.session.cart : ctx.session.items;
+      console.log('products.length :>> ', products.length);
+      if (itemsPerPage + 1 === products.length) {
         const currentPage = ++ctx.session.typePageList[type];
         try {
           const offset = (currentPage - 1) * itemsPerPage;
           const { data } = await httpClient.get(
-            `/products/?type=${type}&&limit=${itemsPerPage}&&offset=${offset}`
+            `/${
+              type === 'cart' ? `carts/${ctx.session.user._id}` : 'products'
+            }/?type=${type}&&limit=${itemsPerPage}&&offset=${offset}`
           );
-          console.log('response.data.data :>> ', data.data);
-          ctx.session.items = [...data.data];
-          if (itemsPerPage + 1 === ctx.session.items.length) {
+          type === 'cart'
+            ? (ctx.session.cart = [...data.data])
+            : (ctx.session.items = [...data.data]);
+          if (itemsPerPage + 1 === data.data.length) {
             data.data.pop();
           }
-          menuPrevNext(ctx, data, type, currentPage);
+          type === 'cart'
+            ? menuPrevNextCart(ctx, data, type, currentPage)
+            : menuPrevNext(ctx, data, type, currentPage);
         } catch (error) {
           catchError(ctx, error);
         }

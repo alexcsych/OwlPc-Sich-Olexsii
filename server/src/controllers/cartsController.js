@@ -42,8 +42,29 @@ module.exports.getProducts = async (req, res, next) => {
       const { createdAt, updatedAt, __v, ...rest } = pr.product._doc;
       return rest;
     });
-    console.log('products :>> ', products);
+    console.log('products.length :>> ', products.length);
     res.status(201).send({ data: products });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports.removeProduct = async (req, res, next) => {
+  console.log('removeProduct');
+  const { user, product } = req.query;
+  console.log('user, product :>> ', user, product);
+  try {
+    const deletedProducts = await Cart.deleteOne({
+      user: user,
+      product: product,
+    });
+    console.log('deletedProducts :>> ', deletedProducts);
+
+    if (!deletedProducts) {
+      return next(createHttpError(404, 'Not Found'));
+    }
+
+    res.status(204).send();
   } catch (err) {
     next(err);
   }
