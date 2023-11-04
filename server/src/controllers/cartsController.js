@@ -5,6 +5,13 @@ module.exports.addProduct = async (req, res, next) => {
   const { body } = req;
   console.log('addProduct');
   try {
+    const findedProduct = await Cart.findOne({ product: body.product });
+    console.log('findedProduct :>> ', findedProduct);
+
+    if (findedProduct) {
+      return next(createHttpError(400, 'The product is already in your cart.'));
+    }
+
     const addedProduct = await Cart.create(body);
     console.log('addToCart :>> ', addedProduct);
 
@@ -38,11 +45,14 @@ module.exports.getProducts = async (req, res, next) => {
       return next(createHttpError(404, 'Not Found'));
     }
 
-    const products = findedProducts.map(pr => {
+    console.log('findedProducts.length :>> ', findedProducts.length);
+    const products = findedProducts.reduce((result, pr) => {
       const { createdAt, updatedAt, __v, ...rest } = pr.product._doc;
-      return rest;
-    });
-    console.log('products.length :>> ', products.length);
+      result[rest._id] = { ...rest, quantity: pr.quantity };
+      return result;
+    }, {});
+
+    console.log('products :>> ', products);
     res.status(201).send({ data: products });
   } catch (err) {
     next(err);
@@ -65,6 +75,29 @@ module.exports.removeProduct = async (req, res, next) => {
     }
 
     res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports.updateQuantity = async (req, res, next) => {
+  console.log('updateQuantity');
+  console.log('req.body :>> ', req.body);
+  try {
+    const updatePromises = req.body.updateProducts.map(async item => {
+      const filter = { user: item.user, product: item.product };
+      const update = { $set: { quantity: item.quantity } };
+
+      return Cart.updateMany(filter, update);
+    });
+
+    const updatedPromises = await Promise.all(updatePromises);
+
+    if (!updatedPromises) {
+      return next(createHttpError(400, 'Bad Request'));
+    }
+
+    res.status(200).send();
   } catch (err) {
     next(err);
   }

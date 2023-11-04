@@ -58,6 +58,7 @@ const accountMenuKeyboard = {
 };
 
 const itemsPerPage = 9;
+const productsPerPage = 5;
 // const typeList = ['Video Card', 'CPU', 'Case', 'Motherboard', 'RAM'];
 
 module.exports = {
@@ -66,4 +67,5 @@ module.exports = {
   ordersMenuKeyboard,
   accountMenuKeyboard,
   itemsPerPage,
+  productsPerPage,
 };

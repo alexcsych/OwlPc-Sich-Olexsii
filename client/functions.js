@@ -30,7 +30,6 @@ const catchError = (ctx, error) => {
 function initializeSession (ctx) {
   ctx.session = {};
   ctx.session.user = {};
-  ctx.session.cartProductsId = [];
   ctx.session.isLogin = false;
   ctx.session.typePageList = {
     'Video Card': 1,
@@ -128,7 +127,7 @@ async function handleSignupRoleStep (ctx, messageText) {
   }
 }
 
-const menuPrevNext = (ctx, { data }, type, currentPage) => {
+const menuPrevNext = (ctx, data, type, currentPage) => {
   const inlineKeyboard = data.map(pr => ({
     text: pr.name,
     callback_data: `getProduct_${pr._id}`,
@@ -149,23 +148,25 @@ const menuPrevNext = (ctx, { data }, type, currentPage) => {
   ctx.editMessageText('Main menu', { reply_markup: replyMarkup });
 };
 
-const menuPrevNextCart = (ctx, { data }, type, currentPage) => {
-  const inlineKeyboard = data.map(pr => ({
-    text: pr.name,
-    callback_data: `getCartProduct_${pr._id}`,
-  }));
-  const groupedButtons = [];
-  while (inlineKeyboard.length > 0) {
-    groupedButtons.push(inlineKeyboard.splice(0, 3));
-  }
-  groupedButtons.push([
+const menuPrevNextCart = (ctx, data, type, currentPage) => {
+  console.log('menuPrevNextCart :>> ', data);
+  const inlineKeyboard = Object.values(data).map(pr => [
+    {
+      text: pr.name,
+      callback_data: `getCartProduct_${pr._id}`,
+    },
+    { text: '➖', callback_data: `decQuantity_${pr._id}` },
+    { text: `${pr.quantity}`, callback_data: `quantity` },
+    { text: '➕', callback_data: `incQuantity_${pr._id}` },
+  ]);
+  inlineKeyboard.push([
     { text: '<', callback_data: `prevPageBTN_${type}` },
     { text: `Current Page ${currentPage}`, callback_data: `page` },
     { text: '>', callback_data: `nextPageBTN_${type}` },
   ]);
-  groupedButtons.push([{ text: '<<', callback_data: 'getMenu' }]);
+  inlineKeyboard.push([{ text: '<<', callback_data: 'getMenu' }]);
   const replyMarkup = {
-    inline_keyboard: groupedButtons,
+    inline_keyboard: inlineKeyboard,
   };
   editMessage(ctx, 'Main menu', { reply_markup: replyMarkup }, true);
 };
@@ -234,6 +235,58 @@ const handleChangeStep = async ctx => {
   }
 };
 
+const updateCartQuantity = async ctx => {
+  console.log('updateCartQuantity');
+  console.log('ctx.session.cart :>> ', ctx.session.cart);
+  console.log('ctx.session.updatedCart :>> ', ctx.session.updatedCart);
+  console.log(
+    'ctx.session.cart && ctx.session.updatedCart :>> ',
+    ctx.session.cart !== undefined && ctx.session.updatedCart !== undefined
+  );
+  if (ctx.session.cart !== undefined && ctx.session.updatedCart !== undefined) {
+    const diffArray = [];
+    console.log('123');
+
+    for (const productId in ctx.session.cart) {
+      console.log('productId :>> ', productId);
+      console.log(
+        ctx.session.cart.hasOwnProperty(productId) &&
+          ctx.session.updatedCart.hasOwnProperty(productId)
+      );
+      if (
+        ctx.session.cart.hasOwnProperty(productId) &&
+        ctx.session.updatedCart.hasOwnProperty(productId)
+      ) {
+        console.log(
+          'ctx.session.updatedCart[productId].quantity :>> ',
+          ctx.session.updatedCart[productId].quantity
+        );
+        console.log(
+          'ctx.session.cart[productId].quantity :>> ',
+          ctx.session.cart[productId].quantity
+        );
+        const quantityDiff =
+          ctx.session.updatedCart[productId].quantity -
+          ctx.session.cart[productId].quantity;
+        console.log('quantityDiff :>> ', quantityDiff);
+        if (quantityDiff !== 0) {
+          diffArray.push({
+            user: ctx.session.user._id,
+            product: productId,
+            quantity: ctx.session.updatedCart[productId].quantity,
+          });
+        }
+      }
+    }
+
+    console.log('diffArray :>> ', diffArray);
+    if (diffArray.length > 0) {
+      console.log('diffArray :>> ', diffArray);
+      await httpClient.patch('/carts', { updateProducts: diffArray });
+    }
+  }
+};
+
 module.exports = {
   httpClient,
   initializeSession,
@@ -248,4 +301,5 @@ module.exports = {
   deleteChatMessage,
   editMessage,
   handleChangeStep,
+  updateCartQuantity,
 };
