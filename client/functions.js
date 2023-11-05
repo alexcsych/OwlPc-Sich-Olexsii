@@ -282,7 +282,11 @@ const updateCartQuantity = async ctx => {
     console.log('diffArray :>> ', diffArray);
     if (diffArray.length > 0) {
       console.log('diffArray :>> ', diffArray);
-      await httpClient.patch('/carts', { updateProducts: diffArray });
+      try {
+        await httpClient.patch('/carts', { updateProducts: diffArray });
+      } catch (error) {
+        catchError(ctx, error);
+      }
     }
   }
 };
