@@ -2,17 +2,18 @@ const createHttpError = require('http-errors');
 const { Cart } = require('./../models');
 
 module.exports.addProduct = async (req, res, next) => {
-  const { body } = req;
   console.log('addProduct');
+  const { user, product } = req.body;
+  console.log('user, product :>> ', user, product);
   try {
-    const findedProduct = await Cart.findOne({ product: body.product });
+    const findedProduct = await Cart.findOne({ user: user, product: product });
     console.log('findedProduct :>> ', findedProduct);
 
     if (findedProduct) {
       return next(createHttpError(400, 'The product is already in your cart.'));
     }
 
-    const addedProduct = await Cart.create(body);
+    const addedProduct = await Cart.create({ user: user, product: product });
     console.log('addToCart :>> ', addedProduct);
 
     if (!addedProduct) {
