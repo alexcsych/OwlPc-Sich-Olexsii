@@ -89,6 +89,9 @@ bot.hears('Sign Up', ctx => {
 
 bot.hears('Log Out', ctx => {
   if (ctx.session.isLogin) {
+    updateCartQuantity(ctx);
+    deleteChatMessage(ctx, ctx.session.menuId);
+    deleteChatMessage(ctx, ctx.session.messageId);
     initializeSession(ctx);
     ctx.reply('You are logged out. Choose an action:', {
       reply_markup: {
