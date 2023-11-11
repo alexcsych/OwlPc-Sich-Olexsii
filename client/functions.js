@@ -1,9 +1,6 @@
-require('dotenv').config();
-const axios = require('axios');
-const { signUpSchem, logInSchem, updateUserSchem } = require('./validation');
+const { API } = require('./api');
 const { accountMenuKeyboard } = require('./menu');
-const { SERVER_API_URL } = process.env;
-const httpClient = axios.create({ baseURL: SERVER_API_URL });
+const { signUpSchem, logInSchem, updateUserSchem } = require('./validation');
 
 const catchError = (ctx, error) => {
   ctx.session.step = 'initial';
@@ -46,7 +43,9 @@ function handleLoginEmailStep (ctx, messageText) {
   const { session } = ctx;
   session.login = {};
   session.login.email = messageText;
-  ctx.reply('Enter your password:');
+  ctx.reply(
+    'Enter your password:\n(Password must be at least 6 characters long and include a number, a lowercase letter, an uppercase letter, and a symbol)'
+  );
   session.step = 'login_password';
   console.log('ctx.session.step :>> ', session.step);
 }
@@ -61,7 +60,7 @@ async function handleLoginPasswordStep (ctx, messageText) {
 
   try {
     await logInSchem.validate(userLoginData, { abortEarly: false });
-    const { data } = await httpClient.post(`/users/login`, userLoginData);
+    const { data } = await API.loginUser(userLoginData);
 
     session.isLogin = true;
     session.user = { ...data.data.user };
@@ -81,14 +80,18 @@ function handleSignupUsernameStep (ctx, messageText) {
   const { session } = ctx;
   session.signup = {};
   session.signup.name = messageText;
-  ctx.reply('Enter your password to register:');
+  ctx.reply(
+    'Enter your password to register:\n(Password must be at least 6 characters long and include a number, a lowercase letter, an uppercase letter, and a symbol)'
+  );
   session.step = 'signup_password';
 }
 
 function handleSignupPasswordStep (ctx, messageText) {
   const { session } = ctx;
   session.signup.password = messageText;
-  ctx.reply('Enter your email address to register:');
+  ctx.reply(
+    'Enter your email address to register (e.g., example@example.com):'
+  );
   session.step = 'signup_email';
 }
 
@@ -111,7 +114,7 @@ async function handleSignupRoleStep (ctx, messageText) {
 
   try {
     await signUpSchem.validate(userSignupData, { abortEarly: false });
-    const { data } = await httpClient.post(`/users/signup`, userSignupData);
+    const { data } = await API.signupUser(userSignupData);
 
     session.isLogin = true;
     session.user = { ...data.data.user };
@@ -217,10 +220,7 @@ const handleChangeStep = async ctx => {
   try {
     await updateUserSchem.validate(userUpdateData, { abortEarly: false });
     console.log('valid :>> ');
-    const { data } = await httpClient.put(
-      `/users/${session.user._id}`,
-      userUpdateData
-    );
+    const { data } = await API.updateUser(session.user._id, userUpdateData);
     console.log('data.data');
     session.user = { ...data.data };
     console.log('session.user :>> ', session.user);
@@ -283,7 +283,7 @@ const updateCartQuantity = async ctx => {
     if (diffArray.length > 0) {
       console.log('diffArray :>> ', diffArray);
       try {
-        await httpClient.patch('/carts', { updateProducts: diffArray });
+        await API.updateQuantity({ updateProducts: diffArray });
       } catch (error) {
         catchError(ctx, error);
       }
@@ -292,7 +292,7 @@ const updateCartQuantity = async ctx => {
 };
 
 module.exports = {
-  httpClient,
+  catchError,
   initializeSession,
   handleLoginEmailStep,
   handleLoginPasswordStep,

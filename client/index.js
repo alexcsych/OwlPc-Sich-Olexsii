@@ -9,7 +9,7 @@ const {
   productsPerPage,
 } = require('./menu');
 const {
-  httpClient,
+  catchError,
   initializeSession,
   handleLoginEmailStep,
   handleLoginPasswordStep,
@@ -24,6 +24,7 @@ const {
   menuPrevNextCart,
   updateCartQuantity,
 } = require('./functions');
+const { API } = require('./api');
 
 const { BOT_TOKEN } = process.env;
 const bot = new Telegraf(BOT_TOKEN);
@@ -35,28 +36,6 @@ const showMenuKeyboard = async (ctx, keyboard) => {
     ctx.editMessageText('Main menu', keyboard);
   } else {
     ctx.reply('Need authorization');
-  }
-};
-
-const catchError = (ctx, error) => {
-  ctx.session.step = 'initial';
-  if (error.response && error.response.data && error.response.data.errors) {
-    const { status, title, validationErrors } = error.response.data.errors;
-    ctx.reply(
-      `Error\n\nstatus:\n${status}\n\ntitle:\n${title}\n\n${
-        validationErrors
-          ? `validationErrors:\n${validationErrors.join('\n')}`
-          : ''
-      }`
-    );
-  } else if (error.errors) {
-    ctx.reply(
-      `Validation error. Please check the entered data.\n\nvalidationErrors:\n${error.errors.join(
-        '\n'
-      )}`
-    );
-  } else {
-    ctx.reply(`${error}`);
   }
 };
 
@@ -77,13 +56,13 @@ bot.start(ctx => {
 
 bot.hears('Log In', ctx => {
   initializeSession(ctx);
-  ctx.reply('Enter your email:');
+  ctx.reply('Enter your email (e.g., example@example.com):');
   ctx.session.step = 'login_email';
 });
 
 bot.hears('Sign Up', ctx => {
   initializeSession(ctx);
-  ctx.reply('Enter your login:');
+  ctx.reply('Enter your login (min 2 characters long):');
   ctx.session.step = 'signup_username';
 });
 
@@ -128,8 +107,10 @@ bot.action('getCart', async ctx => {
       const type = 'cart';
       const currentPage = ctx.session.typePageList[type] || 1;
       const offset = (currentPage - 1) * productsPerPage;
-      const { data } = await httpClient.get(
-        `/carts/${ctx.session.user._id}?limit=${productsPerPage}&&offset=${offset}`
+      const { data } = await API.getCartProducts(
+        ctx.session.user._id,
+        productsPerPage,
+        offset
       );
       console.log('data.data :>> ', data.data);
 
@@ -160,7 +141,7 @@ bot.action('changeName', ctx => {
   if (ctx.session.isLogin) {
     ctx.session.isChangeAllInfo = false;
     ctx.session.step = 'change_name';
-    editMessage(ctx, 'Enter new name');
+    editMessage(ctx, 'Enter new name (min 2 characters long)');
   } else {
     ctx.reply('Need authorization');
   }
@@ -170,7 +151,10 @@ bot.action('changePassword', ctx => {
   if (ctx.session.isLogin) {
     ctx.session.isChangeAllInfo = false;
     ctx.session.step = 'change_password';
-    editMessage(ctx, 'Enter new password');
+    editMessage(
+      ctx,
+      'Enter new password\n(Password must be at least 6 characters long and include a number, a lowercase letter, an uppercase letter, and a symbol)'
+    );
   } else {
     ctx.reply('Need authorization');
   }
@@ -180,7 +164,7 @@ bot.action('changeEmail', ctx => {
   if (ctx.session.isLogin) {
     ctx.session.isChangeAllInfo = false;
     ctx.session.step = 'change_email';
-    editMessage(ctx, 'Enter new email');
+    editMessage(ctx, 'Enter new email (e.g., example@example.com)');
   } else {
     ctx.reply('Need authorization');
   }
@@ -190,7 +174,7 @@ bot.action('changeAllInfo', ctx => {
   if (ctx.session.isLogin) {
     ctx.session.isChangeAllInfo = true;
     ctx.session.step = 'change_name';
-    editMessage(ctx, 'Enter new name');
+    editMessage(ctx, 'Enter new name (min 2 characters long)');
   } else {
     ctx.reply('Need authorization');
   }
@@ -220,9 +204,7 @@ bot.on('callback_query', async ctx => {
       try {
         if (!ctx.session.items || ctx.session.itemsType !== type) {
           const offset = (currentPage - 1) * itemsPerPage;
-          const { data } = await httpClient.get(
-            `/products/?type=${type}&&limit=${itemsPerPage}&&offset=${offset}`
-          );
+          const { data } = await API.getProducts(type, itemsPerPage, offset);
           console.log('response.data.data :>> ', data.data);
           ctx.session.items = [...data.data];
           if (itemsPerPage + 1 === ctx.session.items.length) {
@@ -292,7 +274,7 @@ bot.on('callback_query', async ctx => {
       console.log('addToCart');
       const productId = data.replace('addToCart_', '');
       try {
-        await httpClient.post(`/carts`, {
+        await API.addProduct({
           user: ctx.session.user._id,
           product: productId,
         });
@@ -302,16 +284,16 @@ bot.on('callback_query', async ctx => {
     } else if (data.startsWith('removeFromCart_')) {
       const productId = data.replace('removeFromCart_', '');
       try {
-        await httpClient.delete(
-          `/carts?user=${ctx.session.user._id}&&product=${productId}`
-        );
+        await API.removeProduct(ctx.session.user._id, productId);
         await ctx.deleteMessage();
 
         const type = 'cart';
         const currentPage = ctx.session.typePageList[type] || 1;
         const offset = (currentPage - 1) * productsPerPage;
-        const { data } = await httpClient.get(
-          `/carts/${ctx.session.user._id}?limit=${productsPerPage}&&offset=${offset}`
+        const { data } = await API.getCartProducts(
+          ctx.session.user._id,
+          productsPerPage,
+          offset
         );
         console.log('data.data :>> ', data.data);
 
@@ -333,11 +315,11 @@ bot.on('callback_query', async ctx => {
         const currentPage = --ctx.session.typePageList[type];
         try {
           const offset = (currentPage - 1) * perPage;
-          const { data } = await httpClient.get(
-            `/${
-              type === 'cart' ? `carts/${ctx.session.user._id}` : 'products'
-            }/?type=${type}&&limit=${perPage}&&offset=${offset}`
-          );
+          const { data } =
+            type === 'cart'
+              ? await API.getCartProducts(ctx.session.user._id, perPage, offset)
+              : await API.getProducts(type, perPage, offset);
+
           if (type === 'cart') {
             let keys = Object.keys(data.data);
             const deepCopyData = _.cloneDeep(data.data);
@@ -371,11 +353,11 @@ bot.on('callback_query', async ctx => {
         const currentPage = ++ctx.session.typePageList[type];
         try {
           const offset = (currentPage - 1) * perPage;
-          const { data } = await httpClient.get(
-            `/${
-              type === 'cart' ? `carts/${ctx.session.user._id}` : 'products'
-            }/?type=${type}&&limit=${perPage}&&offset=${offset}`
-          );
+          const { data } =
+            type === 'cart'
+              ? await API.getCartProducts(ctx.session.user._id, perPage, offset)
+              : await API.getProducts(type, perPage, offset);
+
           if (type === 'cart') {
             let keys = Object.keys(data.data);
             const deepCopyData = _.cloneDeep(data.data);
@@ -470,7 +452,9 @@ bot.on('text', async ctx => {
       session.updateData = {};
       session.updateData.name = messageText;
       if (session.isChangeAllInfo) {
-        ctx.reply('Enter new password');
+        ctx.reply(
+          'Enter new password\n(Password must be at least 6 characters long and include a number, a lowercase letter, an uppercase letter, and a symbol)'
+        );
         session.step = 'change_password';
       } else {
         handleChangeStep(ctx);
@@ -480,7 +464,7 @@ bot.on('text', async ctx => {
       console.log('change_password');
       if (session.isChangeAllInfo) {
         session.updateData.password = messageText;
-        ctx.reply('Enter new email');
+        ctx.reply('Enter new email (e.g., example@example.com)');
         session.step = 'change_email';
       } else {
         session.updateData = {};

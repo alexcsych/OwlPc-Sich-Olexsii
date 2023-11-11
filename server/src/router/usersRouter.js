@@ -13,6 +13,6 @@ usersRouter
 
 usersRouter
   .route('/:_id')
-  .put(validators.validateUpdateData, usersController.updateUser);
+  .patch(validators.validateUpdateData, usersController.updateUser);
 
 module.exports = usersRouter;
