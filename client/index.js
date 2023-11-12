@@ -63,7 +63,7 @@ bot.hears('Log In', ctx => {
 
 bot.hears('Sign Up', ctx => {
   initializeSession(ctx);
-  ctx.reply('Enter your login (min 2 characters long):');
+  ctx.reply('Enter your name (min 2 characters long):');
   ctx.session.step = 'signup_username';
 });
 
