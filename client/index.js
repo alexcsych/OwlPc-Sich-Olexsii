@@ -16,13 +16,14 @@ const {
   handleSignupUsernameStep,
   handleSignupPasswordStep,
   handleSignupEmailStep,
-  handleSignupRoleStep,
   menuPrevNext,
   deleteChatMessage,
   editMessage,
-  handleChangeStep,
   menuPrevNextCart,
   updateCartQuantity,
+  handleNameChange,
+  handlePasswordChange,
+  handleEmailChange,
 } = require('./functions');
 const { API } = require('./api');
 
@@ -83,6 +84,7 @@ bot.hears('Log Out', ctx => {
 
 bot.hears('Menu', async ctx => {
   if (ctx.session.isLogin) {
+    ctx.session.step = '';
     deleteChatMessage(ctx, ctx.session.menuId);
     deleteChatMessage(ctx, ctx.session.messageId);
     const sentMessage = await ctx.reply('Main menu', mainMenuKeyboard);
@@ -114,17 +116,18 @@ bot.action('getCart', async ctx => {
       );
       console.log('data.data :>> ', data.data);
 
-      let keys = Object.keys(data.data);
-      const deepCopyData = _.cloneDeep(data.data);
-      const deepCopyData1 = _.cloneDeep(data.data);
+      ctx.session.totalSum = data.data.totalSum;
+      let keys = Object.keys(data.data.products);
+      const deepCopyData = _.cloneDeep(data.data.products);
+      const deepCopyData1 = _.cloneDeep(data.data.products);
       ctx.session.cart = deepCopyData;
       ctx.session.updatedCart = deepCopyData1;
       console.log('keys.length :>> ', keys.length);
       if (productsPerPage + 1 === keys.length) {
-        delete data.data[keys[keys.length - 1]];
+        delete data.data.products[keys[keys.length - 1]];
       }
 
-      menuPrevNextCart(ctx, data.data, type, currentPage);
+      menuPrevNextCart(ctx, data.data.products, type, currentPage);
     } catch (error) {
       catchError(ctx, error);
     }
@@ -278,6 +281,7 @@ bot.on('callback_query', async ctx => {
           user: ctx.session.user._id,
           product: productId,
         });
+        editMessage(ctx, 'The product has been added');
       } catch (error) {
         catchError(ctx, error);
       }
@@ -285,7 +289,7 @@ bot.on('callback_query', async ctx => {
       const productId = data.replace('removeFromCart_', '');
       try {
         await API.removeProduct(ctx.session.user._id, productId);
-        await ctx.deleteMessage();
+        editMessage(ctx, 'The product has been removed');
 
         const type = 'cart';
         const currentPage = ctx.session.typePageList[type] || 1;
@@ -297,12 +301,16 @@ bot.on('callback_query', async ctx => {
         );
         console.log('data.data :>> ', data.data);
 
-        let keys = Object.keys(data.data);
-        ctx.session.cart = { ...data.data };
+        ctx.session.totalSum = data.data.totalSum;
+        let keys = Object.keys(data.data.products);
+        const deepCopyData = _.cloneDeep(data.data.products);
+        const deepCopyData1 = _.cloneDeep(data.data.products);
+        ctx.session.cart = deepCopyData;
+        ctx.session.updatedCart = deepCopyData1;
         if (productsPerPage + 1 === keys.length) {
-          delete data.data[keys[keys.length - 1]];
+          delete data.data.products[keys[keys.length - 1]];
         }
-        menuPrevNextCart(ctx, data.data, type, currentPage);
+        menuPrevNextCart(ctx, data.data.products, type, currentPage);
       } catch (error) {
         catchError(ctx, error);
       }
@@ -311,32 +319,46 @@ bot.on('callback_query', async ctx => {
       updateCartQuantity(ctx);
       const type = data.replace('prevPageBTN_', '');
       if (ctx.session.typePageList[type] > 1) {
-        const perPage = type === 'cart' ? productsPerPage : itemsPerPage;
+        const perPage = itemsPerPage;
         const currentPage = --ctx.session.typePageList[type];
         try {
           const offset = (currentPage - 1) * perPage;
-          const { data } =
-            type === 'cart'
-              ? await API.getCartProducts(ctx.session.user._id, perPage, offset)
-              : await API.getProducts(type, perPage, offset);
+          const { data } = await API.getProducts(type, perPage, offset);
 
-          if (type === 'cart') {
-            let keys = Object.keys(data.data);
-            const deepCopyData = _.cloneDeep(data.data);
-            const deepCopyData1 = _.cloneDeep(data.data);
-            ctx.session.cart = deepCopyData;
-            ctx.session.updatedCart = deepCopyData1;
-            if (perPage + 1 === keys.length) {
-              delete data.data[keys[keys.length - 1]];
-            }
-            menuPrevNextCart(ctx, data.data, type, currentPage);
-          } else {
-            ctx.session.items = [...data.data];
-            if (perPage + 1 === data.data.length) {
-              data.data.pop();
-            }
-            menuPrevNext(ctx, data.data, type, currentPage);
+          ctx.session.items = [...data.data];
+          if (perPage + 1 === data.data.length) {
+            data.data.pop();
           }
+          menuPrevNext(ctx, data.data, type, currentPage);
+        } catch (error) {
+          catchError(ctx, error);
+        }
+      }
+    } else if (data.startsWith('prevCartPageBTN_')) {
+      console.log('prevCartPageBTN_');
+      updateCartQuantity(ctx);
+      const type = data.replace('prevCartPageBTN_', '');
+      if (ctx.session.typePageList[type] > 1) {
+        const perPage = productsPerPage;
+        const currentPage = --ctx.session.typePageList[type];
+        try {
+          const offset = (currentPage - 1) * perPage;
+          const { data } = await API.getCartProducts(
+            ctx.session.user._id,
+            perPage,
+            offset
+          );
+
+          ctx.session.totalSum = data.data.totalSum;
+          let keys = Object.keys(data.data.products);
+          const deepCopyData = _.cloneDeep(data.data.products);
+          const deepCopyData1 = _.cloneDeep(data.data.products);
+          ctx.session.cart = deepCopyData;
+          ctx.session.updatedCart = deepCopyData1;
+          if (perPage + 1 === keys.length) {
+            delete data.data.products[keys[keys.length - 1]];
+          }
+          menuPrevNextCart(ctx, data.data.products, type, currentPage);
         } catch (error) {
           catchError(ctx, error);
         }
@@ -345,36 +367,51 @@ bot.on('callback_query', async ctx => {
       console.log('nextPageBTN_');
       updateCartQuantity(ctx);
       const type = data.replace('nextPageBTN_', '');
-      let products =
-        type === 'cart' ? Object.values(ctx.session.cart) : ctx.session.items;
+      let products = ctx.session.items;
       console.log('products.length :>> ', products.length);
-      const perPage = type === 'cart' ? productsPerPage : itemsPerPage;
+      const perPage = itemsPerPage;
       if (perPage + 1 === products.length) {
         const currentPage = ++ctx.session.typePageList[type];
         try {
           const offset = (currentPage - 1) * perPage;
-          const { data } =
-            type === 'cart'
-              ? await API.getCartProducts(ctx.session.user._id, perPage, offset)
-              : await API.getProducts(type, perPage, offset);
+          const { data } = await API.getProducts(type, perPage, offset);
 
-          if (type === 'cart') {
-            let keys = Object.keys(data.data);
-            const deepCopyData = _.cloneDeep(data.data);
-            const deepCopyData1 = _.cloneDeep(data.data);
-            ctx.session.cart = deepCopyData;
-            ctx.session.updatedCart = deepCopyData1;
-            if (perPage + 1 === keys.length) {
-              delete data.data[keys[keys.length - 1]];
-            }
-            menuPrevNextCart(ctx, data.data, type, currentPage);
-          } else {
-            ctx.session.items = [...data.data];
-            if (perPage + 1 === data.data.length) {
-              data.data.pop();
-            }
-            menuPrevNext(ctx, data.data, type, currentPage);
+          ctx.session.items = [...data.data];
+          if (perPage + 1 === data.data.length) {
+            data.data.pop();
           }
+          menuPrevNext(ctx, data.data, type, currentPage);
+        } catch (error) {
+          catchError(ctx, error);
+        }
+      }
+    } else if (data.startsWith('nextCartPageBTN_')) {
+      console.log('nextCartPageBTN_');
+      updateCartQuantity(ctx);
+      const type = data.replace('nextCartPageBTN_', '');
+      let products = Object.values(ctx.session.cart);
+      console.log('products.length :>> ', products.length);
+      const perPage = productsPerPage;
+      if (perPage + 1 === products.length) {
+        const currentPage = ++ctx.session.typePageList[type];
+        try {
+          const offset = (currentPage - 1) * perPage;
+          const { data } = await API.getCartProducts(
+            ctx.session.user._id,
+            perPage,
+            offset
+          );
+
+          ctx.session.totalSum = data.data.totalSum;
+          let keys = Object.keys(data.data.products);
+          const deepCopyData = _.cloneDeep(data.data.products);
+          const deepCopyData1 = _.cloneDeep(data.data.products);
+          ctx.session.cart = deepCopyData;
+          ctx.session.updatedCart = deepCopyData1;
+          if (perPage + 1 === keys.length) {
+            delete data.data.products[keys[keys.length - 1]];
+          }
+          menuPrevNextCart(ctx, data.data.products, type, currentPage);
         } catch (error) {
           catchError(ctx, error);
         }
@@ -389,6 +426,7 @@ bot.on('callback_query', async ctx => {
         ctx.session.updatedCart[productId].quantity
       );
       ctx.session.updatedCart[productId].quantity++;
+      ctx.session.totalSum += ctx.session.updatedCart[productId].price;
       console.log(
         'ctx.session.updatedCart[productId].quantity :>> ',
         ctx.session.updatedCart[productId].quantity
@@ -407,6 +445,7 @@ bot.on('callback_query', async ctx => {
         const type = 'cart';
         const currentPage = ctx.session.typePageList[type] || 1;
         ctx.session.updatedCart[productId].quantity--;
+        ctx.session.totalSum -= ctx.session.updatedCart[productId].price;
         console.log(
           'ctx.session.updatedCart[productId].quantity :>> ',
           ctx.session.updatedCart[productId].quantity
@@ -430,55 +469,28 @@ bot.on('text', async ctx => {
   const step = session.step || '';
   switch (step) {
     case 'login_email':
-      handleLoginEmailStep(ctx, messageText);
+      await handleLoginEmailStep(ctx, messageText);
       break;
     case 'login_password':
       await handleLoginPasswordStep(ctx, messageText);
       break;
     case 'signup_username':
-      handleSignupUsernameStep(ctx, messageText);
-      break;
-    case 'signup_password':
-      handleSignupPasswordStep(ctx, messageText);
+      await handleSignupUsernameStep(ctx, messageText);
       break;
     case 'signup_email':
-      handleSignupEmailStep(ctx, messageText);
+      await handleSignupEmailStep(ctx, messageText);
       break;
-    case 'signup_role':
-      await handleSignupRoleStep(ctx, messageText);
+    case 'signup_password':
+      await handleSignupPasswordStep(ctx, messageText);
       break;
     case 'change_name':
-      console.log('change_name');
-      session.updateData = {};
-      session.updateData.name = messageText;
-      if (session.isChangeAllInfo) {
-        ctx.reply(
-          'Enter new password\n(Password must be at least 6 characters long and include a number, a lowercase letter, an uppercase letter, and a symbol)'
-        );
-        session.step = 'change_password';
-      } else {
-        handleChangeStep(ctx);
-      }
-      break;
-    case 'change_password':
-      console.log('change_password');
-      if (session.isChangeAllInfo) {
-        session.updateData.password = messageText;
-        ctx.reply('Enter new email (e.g., example@example.com)');
-        session.step = 'change_email';
-      } else {
-        session.updateData = {};
-        session.updateData.password = messageText;
-        handleChangeStep(ctx);
-      }
+      await handleNameChange(ctx, messageText);
       break;
     case 'change_email':
-      console.log('change_email');
-      if (!session.isChangeAllInfo) {
-        session.updateData = {};
-      }
-      session.updateData.email = messageText;
-      handleChangeStep(ctx);
+      await handleEmailChange(ctx, messageText);
+      break;
+    case 'change_password':
+      await handlePasswordChange(ctx, messageText);
       break;
     default:
       ctx.reply('Please select an action.');
