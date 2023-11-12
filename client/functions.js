@@ -1,5 +1,5 @@
 const { API } = require('./api');
-const { accountMenuKeyboard } = require('./menu');
+const { accountMenuKeyboard, mainMenuKeyboard } = require('./menu');
 const {
   signUpSchem,
   logInSchem,
@@ -12,13 +12,21 @@ const catchError = (ctx, error) => {
   ctx.session.step = 'initial';
   if (error.response) {
     const { status, title, validationErrors } = error.response.data.errors;
-    ctx.reply(
-      `Error\n\nstatus:\n${status}\n\ntitle:\n${title}\n\n${
-        validationErrors
-          ? `validationErrors:\n${validationErrors.join('\n')}`
-          : ''
-      }`
-    );
+    switch (status) {
+      case 409:
+        editMessage(ctx, title);
+        break;
+
+      default:
+        ctx.reply(
+          `Error\n\nstatus:\n${status}\n\ntitle:\n${title}\n\n${
+            validationErrors
+              ? `validationErrors:\n${validationErrors.join('\n')}`
+              : ''
+          }`
+        );
+        break;
+    }
   } else if (error.errors) {
     ctx.reply(
       `Validation error. Please check the entered data.\n\nvalidationErrors:\n${error.errors.join(
@@ -96,12 +104,14 @@ async function handleLoginPasswordStep (ctx, messageText) {
       session.isLogin = true;
       session.user = { ...data.data.user };
       session.cartProductsId = [...data.data.cart];
-      ctx.reply('Login successful! Choose an action:', {
+      await ctx.reply('Login successful! Choose an action:', {
         reply_markup: {
           keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]],
           resize_keyboard: true,
         },
       });
+      const sentMessage = await ctx.reply('Main menu', mainMenuKeyboard);
+      ctx.session.menuId = sentMessage.message_id;
     } catch (error) {
       catchError(ctx, error);
     }
@@ -158,12 +168,17 @@ async function handleSignupPasswordStep (ctx, messageText) {
 
       session.isLogin = true;
       session.user = { ...data.data.user };
-      ctx.reply('Registration completed successfully! Choose an action:', {
-        reply_markup: {
-          keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]],
-          resize_keyboard: true,
-        },
-      });
+      await ctx.reply(
+        'Registration completed successfully! Choose an action:',
+        {
+          reply_markup: {
+            keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]],
+            resize_keyboard: true,
+          },
+        }
+      );
+      const sentMessage = await ctx.reply('Main menu', mainMenuKeyboard);
+      ctx.session.menuId = sentMessage.message_id;
     } catch (error) {
       catchError(ctx, error);
     }
@@ -291,7 +306,7 @@ const handleNameChange = async (ctx, messageText) => {
     session.updateData.name = messageText;
     if (session.isChangeAllInfo) {
       ctx.reply('Enter new email (e.g., example@example.com)');
-      session.step = 'change_password';
+      session.step = 'change_email';
     } else {
       handleChangeStep(ctx);
     }
