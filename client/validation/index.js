@@ -1,6 +1,6 @@
 const yup = require('yup');
 
-module.exports.signUpSchem = yup.object().shape({
+const Schems = {
   name: yup
     .string()
     .min(2, 'Name must be 2 characters long')
@@ -19,42 +19,27 @@ module.exports.signUpSchem = yup.object().shape({
     .required('Password is required'),
   role: yup
     .string()
-    .oneOf(
-      ['customer', 'creator', 'moderator'],
-      'Role must be one of the following values: customer, creator, moderator'
-    )
+    .matches(/^customer$/, 'Role must be set to customer')
     .required('Role is required'),
-});
+};
 
-module.exports.logInSchem = yup.object().shape({
-  email: yup
-    .string()
-    .email('Invalid email format')
-    .required('Email is required'),
-  password: yup
-    .string()
-    .min(6, 'Password must be 6 characters long')
-    .matches(/[0-9]/, 'Password requires a number')
-    .matches(/[a-z]/, 'Password requires a lowercase letter')
-    .matches(/[A-Z]/, 'Password requires an uppercase letter')
-    .matches(/[^\w]/, 'Password requires a symbol')
-    .required('Password is required'),
-});
-
-module.exports.updateUserSchem = yup.object().shape({
-  name: yup.string().min(2, 'Name must be 2 characters long'),
-  email: yup.string().email('Invalid email format'),
-  password: yup
-    .string()
-    .min(6, 'Password must be 6 characters long')
-    .matches(/[0-9]/, 'Password requires a number')
-    .matches(/[a-z]/, 'Password requires a lowercase letter')
-    .matches(/[A-Z]/, 'Password requires an uppercase letter')
-    .matches(/[^\w]/, 'Password requires a symbol'),
-  role: yup
-    .string()
-    .oneOf(
-      ['customer', 'creator', 'moderator'],
-      'Role must be one of the following values: customer, creator, moderator'
-    ),
-});
+module.exports = {
+  validName: Schems.name,
+  validEmail: Schems.email,
+  validPassword: Schems.password,
+  signUpSchem: yup.object().shape({
+    name: Schems.name,
+    email: Schems.email,
+    password: Schems.password,
+    role: Schems.role,
+  }),
+  logInSchem: yup.object().shape({
+    email: Schems.email,
+    password: Schems.password,
+  }),
+  updateUserSchem: yup.object().shape({
+    name: Schems.name,
+    email: Schems.email,
+    password: Schems.password,
+  }),
+};
