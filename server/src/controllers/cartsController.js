@@ -36,15 +36,21 @@ module.exports.getProducts = async (req, res, next) => {
   console.log(' req.params :>> ', req.params);
   console.log('getProducts');
   try {
+    let totalSum = 0;
+    const summ = await Cart.find({ user: userId }).populate('product');
+    summ.forEach(cartItem => {
+      const { product, quantity } = cartItem;
+      const { price } = product;
+
+      totalSum += price * quantity;
+    });
+    console.log('totalSum :>> ', totalSum);
+
     const findedProducts = await Cart.find({ user: userId })
       .populate('product')
       .limit(newLimit)
       .skip(newOffset);
     console.log('findedProducts :>> ', findedProducts);
-
-    if (!findedProducts) {
-      return next(createHttpError(404, 'Not Found'));
-    }
 
     console.log('findedProducts.length :>> ', findedProducts.length);
     const products = findedProducts.reduce((result, pr) => {
@@ -54,7 +60,7 @@ module.exports.getProducts = async (req, res, next) => {
     }, {});
 
     console.log('products :>> ', products);
-    res.status(201).send({ data: products });
+    res.status(201).send({ data: { products, totalSum } });
   } catch (err) {
     next(err);
   }
