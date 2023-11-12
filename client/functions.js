@@ -1,6 +1,12 @@
 const { API } = require('./api');
 const { accountMenuKeyboard } = require('./menu');
-const { signUpSchem, logInSchem, updateUserSchem } = require('./validation');
+const {
+  signUpSchem,
+  logInSchem,
+  validEmail,
+  validPassword,
+  validName,
+} = require('./validation');
 
 const catchError = (ctx, error) => {
   ctx.session.step = 'initial';
@@ -24,6 +30,21 @@ const catchError = (ctx, error) => {
   }
 };
 
+const catchValidationError = async (ctx, schem, data, step) => {
+  try {
+    await schem.validate(data, { abortEarly: false });
+    return true;
+  } catch (error) {
+    ctx.session.step = step;
+    ctx.reply(
+      `Validation error. Please check the entered data.\n\nValidation Errors:\n${error.errors.join(
+        '\n'
+      )}\n\nPlease try again.`
+    );
+    return false;
+  }
+};
+
 function initializeSession (ctx) {
   ctx.session = {};
   ctx.session.user = {};
@@ -39,94 +60,113 @@ function initializeSession (ctx) {
   console.log('ctx.session :>> ', ctx.session);
 }
 
-function handleLoginEmailStep (ctx, messageText) {
+async function handleLoginEmailStep (ctx, messageText) {
   const { session } = ctx;
-  session.login = {};
-  session.login.email = messageText;
-  ctx.reply(
-    'Enter your password:\n(Password must be at least 6 characters long and include a number, a lowercase letter, an uppercase letter, and a symbol)'
-  );
-  session.step = 'login_password';
-  console.log('ctx.session.step :>> ', session.step);
+  if (await catchValidationError(ctx, validEmail, messageText, 'login_email')) {
+    session.login = {};
+    session.login.email = messageText;
+    await ctx.reply(
+      'Enter your password:\n(Password must be at least 6 characters long and include a number, a lowercase letter, an uppercase letter, and a symbol)'
+    );
+    session.step = 'login_password';
+    console.log('ctx.session.step :>> ', session.step);
+  }
 }
 
 async function handleLoginPasswordStep (ctx, messageText) {
   const { session } = ctx;
-  session.login.password = messageText;
-  session.step = '';
-  const userLoginData = {
-    ...session.login,
-  };
+  if (
+    await catchValidationError(
+      ctx,
+      validPassword,
+      messageText,
+      'login_password'
+    )
+  ) {
+    session.login.password = messageText;
+    session.step = '';
+    const userLoginData = {
+      ...session.login,
+    };
 
-  try {
-    await logInSchem.validate(userLoginData, { abortEarly: false });
-    const { data } = await API.loginUser(userLoginData);
+    try {
+      await logInSchem.validate(userLoginData, { abortEarly: false });
+      const { data } = await API.loginUser(userLoginData);
 
-    session.isLogin = true;
-    session.user = { ...data.data.user };
-    session.cartProductsId = [...data.data.cart];
-    ctx.reply('Login successful! Choose an action:', {
-      reply_markup: {
-        keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]],
-        resize_keyboard: true,
-      },
-    });
-  } catch (error) {
-    catchError(ctx, error);
+      session.isLogin = true;
+      session.user = { ...data.data.user };
+      session.cartProductsId = [...data.data.cart];
+      ctx.reply('Login successful! Choose an action:', {
+        reply_markup: {
+          keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]],
+          resize_keyboard: true,
+        },
+      });
+    } catch (error) {
+      catchError(ctx, error);
+    }
   }
 }
 
-function handleSignupUsernameStep (ctx, messageText) {
+async function handleSignupUsernameStep (ctx, messageText) {
   const { session } = ctx;
-  session.signup = {};
-  session.signup.name = messageText;
-  ctx.reply(
-    'Enter your password to register:\n(Password must be at least 6 characters long and include a number, a lowercase letter, an uppercase letter, and a symbol)'
-  );
-  session.step = 'signup_password';
+  if (
+    await catchValidationError(ctx, validName, messageText, 'signup_username')
+  ) {
+    session.signup = {};
+    session.signup.name = messageText;
+    ctx.reply(
+      'Enter your email address to register (e.g., example@example.com):'
+    );
+    session.step = 'signup_email';
+  }
 }
 
-function handleSignupPasswordStep (ctx, messageText) {
+async function handleSignupEmailStep (ctx, messageText) {
   const { session } = ctx;
-  session.signup.password = messageText;
-  ctx.reply(
-    'Enter your email address to register (e.g., example@example.com):'
-  );
-  session.step = 'signup_email';
+  if (
+    await catchValidationError(ctx, validEmail, messageText, 'signup_email')
+  ) {
+    session.signup.email = messageText;
+    ctx.reply(
+      'Enter your password to register:\n(Password must be at least 6 characters long and include a number, a lowercase letter, an uppercase letter, and a symbol)'
+    );
+    session.step = 'signup_password';
+  }
 }
 
-function handleSignupEmailStep (ctx, messageText) {
+async function handleSignupPasswordStep (ctx, messageText) {
   const { session } = ctx;
-  session.signup.email = messageText;
-  ctx.reply(
-    'Enter your role (for example: customer, creator, moderator) to register:'
-  );
-  session.step = 'signup_role';
-}
+  if (
+    await catchValidationError(
+      ctx,
+      validPassword,
+      messageText,
+      'signup_password'
+    )
+  ) {
+    session.signup.password = messageText;
+    session.signup.role = 'customer';
+    session.step = '';
+    const userSignupData = {
+      ...session.signup,
+    };
 
-async function handleSignupRoleStep (ctx, messageText) {
-  const { session } = ctx;
-  session.signup.role = messageText;
-  session.step = '';
-  const userSignupData = {
-    ...session.signup,
-  };
+    try {
+      await signUpSchem.validate(userSignupData, { abortEarly: false });
+      const { data } = await API.signupUser(userSignupData);
 
-  try {
-    await signUpSchem.validate(userSignupData, { abortEarly: false });
-    const { data } = await API.signupUser(userSignupData);
-
-    session.isLogin = true;
-    session.user = { ...data.data.user };
-    session.cartProductsId = [...data.data.cart];
-    ctx.reply('Registration completed successfully! Choose an action:', {
-      reply_markup: {
-        keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]],
-        resize_keyboard: true,
-      },
-    });
-  } catch (error) {
-    catchError(ctx, error);
+      session.isLogin = true;
+      session.user = { ...data.data.user };
+      ctx.reply('Registration completed successfully! Choose an action:', {
+        reply_markup: {
+          keyboard: [[{ text: 'Menu' }, { text: 'Log Out' }]],
+          resize_keyboard: true,
+        },
+      });
+    } catch (error) {
+      catchError(ctx, error);
+    }
   }
 }
 
@@ -163,9 +203,19 @@ const menuPrevNextCart = (ctx, data, type, currentPage) => {
     { text: '➕', callback_data: `incQuantity_${pr._id}` },
   ]);
   inlineKeyboard.push([
-    { text: '<', callback_data: `prevPageBTN_${type}` },
+    {
+      text: '<',
+      callback_data: `prevCartPageBTN_${type}`,
+    },
     { text: `Current Page ${currentPage}`, callback_data: `page` },
-    { text: '>', callback_data: `nextPageBTN_${type}` },
+    {
+      text: '>',
+      callback_data: `nextCartPageBTN_${type}`,
+    },
+  ]);
+  console.log('ctx.session.totalSum :>> ', ctx.session.totalSum);
+  inlineKeyboard.push([
+    { text: `Total sum ${ctx.session.totalSum}`, callback_data: 'totalSum' },
   ]);
   inlineKeyboard.push([{ text: '<<', callback_data: 'getMenu' }]);
   const replyMarkup = {
@@ -218,8 +268,6 @@ const handleChangeStep = async ctx => {
     ...session.updateData,
   };
   try {
-    await updateUserSchem.validate(userUpdateData, { abortEarly: false });
-    console.log('valid :>> ');
     const { data } = await API.updateUser(session.user._id, userUpdateData);
     console.log('data.data');
     session.user = { ...data.data };
@@ -232,6 +280,60 @@ const handleChangeStep = async ctx => {
     ctx.session.menuId = sentMessage.message_id;
   } catch (error) {
     catchError(ctx, error);
+  }
+};
+
+const handleNameChange = async (ctx, messageText) => {
+  console.log('change_name');
+  const { session } = ctx;
+  if (await catchValidationError(ctx, validName, messageText, 'change_name')) {
+    session.updateData = {};
+    session.updateData.name = messageText;
+    if (session.isChangeAllInfo) {
+      ctx.reply('Enter new email (e.g., example@example.com)');
+      session.step = 'change_password';
+    } else {
+      handleChangeStep(ctx);
+    }
+  }
+};
+
+const handlePasswordChange = async (ctx, messageText) => {
+  console.log('change_password');
+  const { session } = ctx;
+  if (
+    await catchValidationError(
+      ctx,
+      validPassword,
+      messageText,
+      'change_password'
+    )
+  ) {
+    if (!session.isChangeAllInfo) {
+      session.updateData = {};
+    }
+    session.updateData.password = messageText;
+    handleChangeStep(ctx);
+  }
+};
+
+const handleEmailChange = async (ctx, messageText) => {
+  console.log('change_email');
+  const { session } = ctx;
+  if (
+    await catchValidationError(ctx, validEmail, messageText, 'change_email')
+  ) {
+    if (session.isChangeAllInfo) {
+      session.updateData.email = messageText;
+      ctx.reply(
+        'Enter new password\n(Password must be at least 6 characters long and include a number, a lowercase letter, an uppercase letter, and a symbol)'
+      );
+      session.step = 'change_password';
+    } else {
+      session.updateData = {};
+      session.updateData.email = messageText;
+      handleChangeStep(ctx);
+    }
   }
 };
 
@@ -299,11 +401,13 @@ module.exports = {
   handleSignupUsernameStep,
   handleSignupPasswordStep,
   handleSignupEmailStep,
-  handleSignupRoleStep,
   menuPrevNext,
   menuPrevNextCart,
   deleteChatMessage,
   editMessage,
   handleChangeStep,
+  handleNameChange,
+  handleEmailChange,
+  handlePasswordChange,
   updateCartQuantity,
 };
