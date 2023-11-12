@@ -10,7 +10,7 @@ module.exports.addProduct = async (req, res, next) => {
     console.log('findedProduct :>> ', findedProduct);
 
     if (findedProduct) {
-      return next(createHttpError(400, 'The product is already in your cart.'));
+      return next(createHttpError(409, 'The product is already in your cart.'));
     }
 
     const addedProduct = await Cart.create({ user: user, product: product });
