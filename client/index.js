@@ -189,8 +189,9 @@ bot.action('getFullInfo', ctx => {
     console.log('ctx.session.user :>> ', ctx.session.user);
     const { name, email, role } = ctx.session.user;
     const fullInfoText = `name: ${name}\nemail: ${email}\nrole: ${role}`;
-    const uniqueIdentifier = Math.random().toString(36).substring(7);
-    const text = `Full Info (${uniqueIdentifier}):\n\n${fullInfoText}`;
+    // const uniqueIdentifier = Math.random().toString(36).substring(7);
+    //  (${uniqueIdentifier})
+    const text = `Full Info:\n\n${fullInfoText}`;
     editMessage(ctx, text);
   } else {
     ctx.reply('Need authorization');
@@ -236,8 +237,9 @@ bot.on('callback_query', async ctx => {
         .map(([key, value]) => `${key}: ${value}`)
         .join('\n');
 
-      const uniqueIdentifier = Math.random().toString(36).substring(7);
-      const text = `Product Information (${uniqueIdentifier}):\n\n${productDetailsText}`;
+      // const uniqueIdentifier = Math.random().toString(36).substring(7);
+      //  (${uniqueIdentifier})
+      const text = `Product Information:\n\n${productDetailsText}`;
       const addToCartKeyboard = {
         reply_markup: {
           inline_keyboard: [
@@ -258,8 +260,9 @@ bot.on('callback_query', async ctx => {
         .map(([key, value]) => `${key}: ${value}`)
         .join('\n');
 
-      const uniqueIdentifier = Math.random().toString(36).substring(7);
-      const text = `Product Information (${uniqueIdentifier}):\n\n${productDetailsText}`;
+      // const uniqueIdentifier = Math.random().toString(36).substring(7);
+      // (${uniqueIdentifier})
+      const text = `Product Information:\n\n${productDetailsText}`;
       const addToCartKeyboard = {
         reply_markup: {
           inline_keyboard: [
