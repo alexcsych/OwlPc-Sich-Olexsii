@@ -89,6 +89,242 @@
           }
         }
       }
+    },
+    "/users/{_id}": {
+      "patch": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update user by ID",
+        "description": "This endpoint allows you to update a user by ID.",
+        "parameters": [
+          {
+            "name": "_id",
+            "in": "path",
+            "description": "ID of the user to be updated",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "updateData",
+            "in": "body",
+            "description": "User data that needs to be updated",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UserUpdate"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User updated successfully",
+            "schema": {
+              "$ref": "#/definitions/UserResponse"
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "User Not Found"
+          },
+          "500": {
+            "description": "Server Error"
+          }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Get products by type with pagination",
+        "description": "This endpoint allows you to retrieve products based on type with pagination.",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Type of the product",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of products to retrieve (limit)",
+            "required": true,
+            "type": "integer"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of products to skip (offset)",
+            "required": true,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Products retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/ProductsResponse"
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Server Error"
+          }
+        }
+      }
+    },
+    "/carts": {
+      "post": {
+        "tags": [
+          "Carts"
+        ],
+        "summary": "Add a product to the cart",
+        "description": "This endpoint allows you to add a product to the user's cart.",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "User and product information",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AddProductRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Product added to the cart successfully",
+            "schema": {
+              "$ref": "#/definitions/CartItem"
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "409": {
+            "description": "Conflict - The product is already in the cart"
+          },
+          "500": {
+            "description": "Server Error"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Carts"
+        ],
+        "summary": "Update quantities in the cart",
+        "description": "This endpoint allows you to update quantities of products in the user's cart.",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Array of products with updated quantities",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateQuantityRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Quantities updated successfully"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Server Error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Carts"
+        ],
+        "summary": "Remove a product from the cart",
+        "description": "This endpoint allows you to remove a product from the user's cart.",
+        "parameters": [
+          {
+            "name": "user",
+            "in": "query",
+            "description": "User ID",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "product",
+            "in": "query",
+            "description": "Product ID",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Product removed from the cart successfully"
+          },
+          "404": {
+            "description": "Not Found - Product not in the cart"
+          },
+          "500": {
+            "description": "Server Error"
+          }
+        }
+      }
+    },
+    "/carts/{id}": {
+      "get": {
+        "tags": [
+          "Carts"
+        ],
+        "summary": "Get items in the cart by user ID with pagination",
+        "description": "This endpoint allows you to retrieve items in the cart by user ID with pagination.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "user ID",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of items to retrieve (limit)",
+            "required": true,
+            "type": "integer"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of items to skip (offset)",
+            "required": true,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cart items retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/CartItemsResponse"
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Server Error"
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -133,25 +369,170 @@
     "UserResponse": {
       "type": "object",
       "properties": {
-        "_id": {
-          "type": "string"
-        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "user": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "_id": {
+                  "type": "string"
+                }
+              }
+            },
+            "cart": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "UserUpdate": {
+      "type": "object",
+      "properties": {
         "name": {
           "type": "string"
         },
         "email": {
           "type": "string"
         },
+        "password": {
+          "type": "string"
+        },
         "role": {
-          "type": "string"
-        },
-        "createdAt": {
-          "type": "string"
-        },
-        "updatedAt": {
           "type": "string"
         }
       }
+    },
+    "ProductsResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Product"
+          }
+        }
+      }
+    },
+    "Product": {
+      "type": "object",
+      "properties": {}
+    },
+    "CartItemsResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "products": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/CartItem"
+              }
+            },
+            "totalSum": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "CartItem": {
+      "type": "object",
+      "properties": {
+        "_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Video Card",
+            "CPU",
+            "Case",
+            "Motherboard",
+            "RAM"
+          ]
+        },
+        "price": {
+          "type": "number"
+        },
+        "cores": {
+          "type": "integer"
+        },
+        "socket": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "integer"
+        }
+      }
+    },
+    "AddProductRequest": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "type": "string"
+        },
+        "product": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "user",
+        "product"
+      ]
+    },
+    "UpdateQuantityRequest": {
+      "type": "object",
+      "properties": {
+        "updateProducts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/UpdateProductQuantity"
+          }
+        }
+      },
+      "required": [
+        "updateProducts"
+      ]
+    },
+    "UpdateProductQuantity": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "type": "string"
+        },
+        "product": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "user",
+        "product",
+        "quantity"
+      ]
     }
   }
 }

@@ -1,5 +1,11 @@
 const createError = require('http-errors');
-const { signUpSchem, logInSchem, updateUserSchem } = require('../validation');
+const {
+  signUpSchem,
+  logInSchem,
+  updateUserSchem,
+  addProductSchem,
+  updateQuantitySchem,
+} = require('../validation');
 
 const valid = async (req, res, next, schem) => {
   try {
@@ -9,7 +15,7 @@ const valid = async (req, res, next, schem) => {
     const validationErrors = error.errors || [];
     const customError = createError(
       400,
-      'Invalid registration data. Please check the provided data and try again.'
+      'Invalid data. Please check the provided data and try again.'
     );
     customError.validationErrors = validationErrors;
     next(customError);
@@ -26,4 +32,12 @@ module.exports.validateLogInData = async (req, res, next) => {
 
 module.exports.validateUpdateData = async (req, res, next) => {
   valid(req, res, next, updateUserSchem);
+};
+
+module.exports.validateAddProductData = async (req, res, next) => {
+  valid(req, res, next, addProductSchem);
+};
+
+module.exports.validateUpdateQuantityData = async (req, res, next) => {
+  valid(req, res, next, updateQuantitySchem);
 };

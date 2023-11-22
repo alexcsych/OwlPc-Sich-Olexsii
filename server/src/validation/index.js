@@ -1,5 +1,5 @@
 const yup = require('yup');
-const { User } = require('../models');
+const { User, Product } = require('../models');
 
 module.exports.signUpSchem = yup.object().shape({
   name: yup
@@ -70,10 +70,51 @@ module.exports.updateUserSchem = yup.object().shape({
     .matches(/[a-z]/, 'Password requires a lowercase letter')
     .matches(/[A-Z]/, 'Password requires an uppercase letter')
     .matches(/[^\w]/, 'Password requires a symbol'),
-  role: yup
+});
+
+module.exports.addProductSchem = yup.object().shape({
+  user: yup
     .string()
-    .oneOf(
-      ['customer', 'creator', 'moderator'],
-      'Role must be one of the following values: customer, creator, moderator'
-    ),
+    .test('is', 'There are no users with this id', async function (value) {
+      const user = await User.findOne({ email: value });
+      return !user;
+    })
+    .required('Name is required'),
+  product: yup
+    .string()
+    .test('is', 'There are no products with this id', async function (value) {
+      const user = await Product.findOne({ email: value });
+      return !user;
+    })
+    .required('Products is required'),
+});
+
+module.exports.addProductSchem = yup.object().shape({
+  user: yup
+    .string()
+    .test('is', 'There are no users with this id', async function (value) {
+      const user = await User.findOne({ email: value });
+      return !user;
+    })
+    .required('Name is required'),
+  product: yup
+    .string()
+    .test('is', 'There are no products with this id', async function (value) {
+      const user = await Product.findOne({ email: value });
+      return !user;
+    })
+    .required('Products is required'),
+});
+
+module.exports.updateQuantitySchem = yup.object().shape({
+  updateProducts: yup.array().of(
+    yup.object().shape({
+      user: yup.string().required('Name is required'),
+      product: yup.string().required('Product is required'),
+      quantity: yup
+        .number()
+        .min(0, 'Quantity must be greater than or equal to 0')
+        .required('Quantity is required'),
+    })
+  ),
 });

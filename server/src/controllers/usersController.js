@@ -19,13 +19,12 @@ module.exports.createUser = async (req, res, next) => {
     if (!createdUser) {
       return next(createHttpError(400, 'Bad Request'));
     }
-    const { password, ...rest } = createdUser;
-
-    const cart = await Cart.find({ user: rest._doc._id });
+    const { password, createdAt, updatedAt, __v, ...rest } = createdUser._doc;
+    const cart = await Cart.find({ user: rest._id });
     const newCart = cart.map(c => c.product);
     console.log('newCart :>> ', newCart);
 
-    res.status(201).send({ data: { user: rest._doc, cart: newCart } });
+    res.status(201).send({ data: { user: rest, cart: newCart } });
   } catch (err) {
     next(err);
   }
@@ -56,14 +55,14 @@ module.exports.loginUser = async (req, res, next) => {
     }
 
     console.log('foundUser :>> ', foundUser);
-    const { password, ...rest } = foundUser;
+    const { password, ...rest } = foundUser._doc;
     console.log('newFoundUser :>> ', rest);
 
-    const cart = await Cart.find({ user: rest._doc._id });
+    const cart = await Cart.find({ user: rest._id });
     const newCart = cart.map(c => c.product);
     console.log('newCart :>> ', newCart);
 
-    res.status(200).send({ data: { user: rest._doc, cart: newCart } });
+    res.status(200).send({ data: { user: rest, cart: newCart } });
   } catch (err) {
     next(err);
   }
@@ -92,24 +91,3 @@ module.exports.updateUser = async (req, res, next) => {
     next(err);
   }
 };
-
-// module.exports.addToCart = async (req, res, next) => {
-//   console.log('addToCart');
-//   console.log('req.query :>> ', req.query);
-//   console.log('req.body :>> ', req.body);
-//   const { email } = req.query;
-//   const { productId } = req.body;
-//   try {
-//     const updatedUser = await User.findOneAndUpdate(email, req.body, {
-//       new: true,
-//     }).select('-_id -password -createdAt -updatedAt -__v');
-//     console.log('updatedUser :>> ', updatedUser);
-//     if (!updatedUser) {
-//       return next(createHttpError(404, 'User Not Found'));
-//     }
-
-//     return res.status(200).send({ data: updatedUser });
-//   } catch (err) {
-//     next(err);
-//   }
-// };

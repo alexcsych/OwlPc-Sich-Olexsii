@@ -19,7 +19,9 @@ module.exports.addProduct = async (req, res, next) => {
     if (!addedProduct) {
       return next(createHttpError(400, 'Bad Request'));
     }
-    res.status(201).send({ data: addedProduct });
+    const { createdAt, updatedAt, __v, ...rest } = addedProduct._doc;
+
+    res.status(201).send({ data: rest });
   } catch (err) {
     next(err);
   }
@@ -60,7 +62,7 @@ module.exports.getProducts = async (req, res, next) => {
     }, {});
 
     console.log('products :>> ', products);
-    res.status(201).send({ data: { products, totalSum } });
+    res.status(200).send({ data: { products, totalSum } });
   } catch (err) {
     next(err);
   }
@@ -77,7 +79,7 @@ module.exports.removeProduct = async (req, res, next) => {
     });
     console.log('deletedProducts :>> ', deletedProducts);
 
-    if (!deletedProducts) {
+    if (deletedProducts.deletedCount === 0) {
       return next(createHttpError(404, 'Not Found'));
     }
 
