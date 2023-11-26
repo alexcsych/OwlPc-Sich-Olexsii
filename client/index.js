@@ -45,8 +45,6 @@ bot.use(session());
 bot.start(ctx => {
   ctx.session = {};
   ctx.session.isLogin = false;
-  console.log('ctx.session :>> ', ctx.session);
-  console.log('ctx.session :>> ', ctx.session);
   ctx.reply('Welcome! Choose an action:', {
     reply_markup: {
       keyboard: [[{ text: 'Log In' }, { text: 'Sign Up' }]],
@@ -114,7 +112,6 @@ bot.action('getCart', async ctx => {
         productsPerPage,
         offset
       );
-      console.log('data.data :>> ', data.data);
 
       ctx.session.totalSum = data.data.totalSum;
       let keys = Object.keys(data.data.products);
@@ -122,7 +119,6 @@ bot.action('getCart', async ctx => {
       const deepCopyData1 = _.cloneDeep(data.data.products);
       ctx.session.cart = deepCopyData;
       ctx.session.updatedCart = deepCopyData1;
-      console.log('keys.length :>> ', keys.length);
       if (productsPerPage + 1 === keys.length) {
         delete data.data.products[keys[keys.length - 1]];
       }
@@ -186,11 +182,8 @@ bot.action('changeAllInfo', ctx => {
 bot.action('getFullInfo', ctx => {
   if (ctx.session.isLogin) {
     ctx.session.step = '';
-    console.log('ctx.session.user :>> ', ctx.session.user);
     const { name, email, role } = ctx.session.user;
     const fullInfoText = `name: ${name}\nemail: ${email}\nrole: ${role}`;
-    // const uniqueIdentifier = Math.random().toString(36).substring(7);
-    //  (${uniqueIdentifier})
     const text = `Full Info:\n\n${fullInfoText}`;
     editMessage(ctx, text);
   } else {
@@ -209,7 +202,6 @@ bot.on('callback_query', async ctx => {
         if (!ctx.session.items || ctx.session.itemsType !== type) {
           const offset = (currentPage - 1) * itemsPerPage;
           const { data } = await API.getProducts(type, itemsPerPage, offset);
-          console.log('response.data.data :>> ', data.data);
           ctx.session.items = [...data.data];
           if (itemsPerPage + 1 === ctx.session.items.length) {
             data.data.pop();
@@ -228,17 +220,12 @@ bot.on('callback_query', async ctx => {
       }
     } else if (data.startsWith('getProduct_')) {
       const productId = data.replace('getProduct_', '');
-      console.log('ctx.session.items :>> ', ctx.session.items);
       const productDetails = ctx.session.items.find(i => i._id === productId);
-      console.log('productDetails :>> ', productDetails);
       const { _id, ...rest } = productDetails;
-      console.log('productDetails :>> ', productDetails);
       const productDetailsText = Object.entries(rest)
         .map(([key, value]) => `${key}: ${value}`)
         .join('\n');
 
-      // const uniqueIdentifier = Math.random().toString(36).substring(7);
-      //  (${uniqueIdentifier})
       const text = `Product Information:\n\n${productDetailsText}`;
       const addToCartKeyboard = {
         reply_markup: {
@@ -250,18 +237,12 @@ bot.on('callback_query', async ctx => {
       editMessage(ctx, text, addToCartKeyboard);
     } else if (data.startsWith('getCartProduct_')) {
       const productId = data.replace('getCartProduct_', '');
-      console.log('ctx.session.cart :>> ', ctx.session.cart);
-      console.log('productId :>> ', productId);
       const productDetails = ctx.session.cart[productId];
-      console.log('productDetails :>> ', productDetails);
       const { _id, ...rest } = productDetails;
-      console.log('rest :>> ', rest);
       const productDetailsText = Object.entries(rest)
         .map(([key, value]) => `${key}: ${value}`)
         .join('\n');
 
-      // const uniqueIdentifier = Math.random().toString(36).substring(7);
-      // (${uniqueIdentifier})
       const text = `Product Information:\n\n${productDetailsText}`;
       const addToCartKeyboard = {
         reply_markup: {
@@ -277,7 +258,6 @@ bot.on('callback_query', async ctx => {
       };
       editMessage(ctx, text, addToCartKeyboard);
     } else if (data.startsWith('addToCart_')) {
-      console.log('addToCart');
       const productId = data.replace('addToCart_', '');
       try {
         await API.addProduct({
@@ -302,7 +282,6 @@ bot.on('callback_query', async ctx => {
           productsPerPage,
           offset
         );
-        console.log('data.data :>> ', data.data);
 
         ctx.session.totalSum = data.data.totalSum;
         let keys = Object.keys(data.data.products);
@@ -318,7 +297,6 @@ bot.on('callback_query', async ctx => {
         catchError(ctx, error);
       }
     } else if (data.startsWith('prevPageBTN_')) {
-      console.log('prevPageBTN_');
       updateCartQuantity(ctx);
       const type = data.replace('prevPageBTN_', '');
       if (ctx.session.typePageList[type] > 1) {
@@ -338,7 +316,6 @@ bot.on('callback_query', async ctx => {
         }
       }
     } else if (data.startsWith('prevCartPageBTN_')) {
-      console.log('prevCartPageBTN_');
       updateCartQuantity(ctx);
       const type = data.replace('prevCartPageBTN_', '');
       if (ctx.session.typePageList[type] > 1) {
@@ -367,11 +344,9 @@ bot.on('callback_query', async ctx => {
         }
       }
     } else if (data.startsWith('nextPageBTN_')) {
-      console.log('nextPageBTN_');
       updateCartQuantity(ctx);
       const type = data.replace('nextPageBTN_', '');
       let products = ctx.session.items;
-      console.log('products.length :>> ', products.length);
       const perPage = itemsPerPage;
       if (perPage + 1 === products.length) {
         const currentPage = ++ctx.session.typePageList[type];
@@ -389,11 +364,9 @@ bot.on('callback_query', async ctx => {
         }
       }
     } else if (data.startsWith('nextCartPageBTN_')) {
-      console.log('nextCartPageBTN_');
       updateCartQuantity(ctx);
       const type = data.replace('nextCartPageBTN_', '');
       let products = Object.values(ctx.session.cart);
-      console.log('products.length :>> ', products.length);
       const perPage = productsPerPage;
       if (perPage + 1 === products.length) {
         const currentPage = ++ctx.session.typePageList[type];
@@ -420,39 +393,24 @@ bot.on('callback_query', async ctx => {
         }
       }
     } else if (data.startsWith('incQuantity_')) {
-      console.log('incQuantity_');
       const type = 'cart';
       const currentPage = ctx.session.typePageList[type] || 1;
       const productId = data.replace('incQuantity_', '');
-      console.log(
-        'ctx.session.updatedCart[productId].quantity :>> ',
-        ctx.session.updatedCart[productId].quantity
-      );
       ctx.session.updatedCart[productId].quantity++;
       ctx.session.totalSum += ctx.session.updatedCart[productId].price;
-      console.log(
-        'ctx.session.updatedCart[productId].quantity :>> ',
-        ctx.session.updatedCart[productId].quantity
-      );
       let keys = Object.keys(ctx.session.updatedCart);
       const newData = _.cloneDeep(ctx.session.updatedCart);
       if (productsPerPage + 1 === keys.length) {
         delete newData[keys[keys.length - 1]];
       }
-      console.log('newData :>> ', newData);
       menuPrevNextCart(ctx, newData, type, currentPage);
     } else if (data.startsWith('decQuantity_')) {
-      console.log('decQuantity_');
       const productId = data.replace('decQuantity_', '');
       if (ctx.session.updatedCart[productId].quantity > 1) {
         const type = 'cart';
         const currentPage = ctx.session.typePageList[type] || 1;
         ctx.session.updatedCart[productId].quantity--;
         ctx.session.totalSum -= ctx.session.updatedCart[productId].price;
-        console.log(
-          'ctx.session.updatedCart[productId].quantity :>> ',
-          ctx.session.updatedCart[productId].quantity
-        );
         let keys = Object.keys(ctx.session.updatedCart);
         const newData = { ...ctx.session.updatedCart };
         if (productsPerPage + 1 === keys.length) {

@@ -65,7 +65,6 @@ function initializeSession (ctx) {
     RAM: 1,
     cart: 1,
   };
-  console.log('ctx.session :>> ', ctx.session);
 }
 
 async function handleLoginEmailStep (ctx, messageText) {
@@ -77,7 +76,6 @@ async function handleLoginEmailStep (ctx, messageText) {
       'Enter your password:\n(Password must be at least 6 characters long and include a number, a lowercase letter, an uppercase letter, and a symbol)'
     );
     session.step = 'login_password';
-    console.log('ctx.session.step :>> ', session.step);
   }
 }
 
@@ -207,7 +205,6 @@ const menuPrevNext = (ctx, data, type, currentPage) => {
 };
 
 const menuPrevNextCart = (ctx, data, type, currentPage) => {
-  console.log('menuPrevNextCart :>> ', data);
   const inlineKeyboard = Object.values(data).map(pr => [
     {
       text: pr.name,
@@ -228,7 +225,6 @@ const menuPrevNextCart = (ctx, data, type, currentPage) => {
       callback_data: `nextCartPageBTN_${type}`,
     },
   ]);
-  console.log('ctx.session.totalSum :>> ', ctx.session.totalSum);
   inlineKeyboard.push([
     { text: `Total sum ${ctx.session.totalSum}`, callback_data: 'totalSum' },
   ]);
@@ -286,9 +282,7 @@ const handleChangeStep = async ctx => {
   };
   try {
     const { data } = await API.updateUser(session.user._id, userUpdateData);
-    console.log('data.data');
     session.user = { ...data.data };
-    console.log('session.user :>> ', session.user);
 
     await ctx.reply('User was updated');
     deleteChatMessage(ctx, ctx.session.menuId);
@@ -301,7 +295,6 @@ const handleChangeStep = async ctx => {
 };
 
 const handleNameChange = async (ctx, messageText) => {
-  console.log('change_name');
   const { session } = ctx;
   if (await catchValidationError(ctx, validName, messageText, 'change_name')) {
     session.updateData = {};
@@ -316,7 +309,6 @@ const handleNameChange = async (ctx, messageText) => {
 };
 
 const handlePasswordChange = async (ctx, messageText) => {
-  console.log('change_password');
   const { session } = ctx;
   if (
     await catchValidationError(
@@ -335,7 +327,6 @@ const handlePasswordChange = async (ctx, messageText) => {
 };
 
 const handleEmailChange = async (ctx, messageText) => {
-  console.log('change_email');
   const { session } = ctx;
   if (
     await catchValidationError(ctx, validEmail, messageText, 'change_email')
@@ -355,39 +346,17 @@ const handleEmailChange = async (ctx, messageText) => {
 };
 
 const updateCartQuantity = async ctx => {
-  console.log('updateCartQuantity');
-  console.log('ctx.session.cart :>> ', ctx.session.cart);
-  console.log('ctx.session.updatedCart :>> ', ctx.session.updatedCart);
-  console.log(
-    'ctx.session.cart && ctx.session.updatedCart :>> ',
-    ctx.session.cart !== undefined && ctx.session.updatedCart !== undefined
-  );
   if (ctx.session.cart !== undefined && ctx.session.updatedCart !== undefined) {
     const diffArray = [];
-    console.log('123');
 
     for (const productId in ctx.session.cart) {
-      console.log('productId :>> ', productId);
-      console.log(
-        ctx.session.cart.hasOwnProperty(productId) &&
-          ctx.session.updatedCart.hasOwnProperty(productId)
-      );
       if (
         ctx.session.cart.hasOwnProperty(productId) &&
         ctx.session.updatedCart.hasOwnProperty(productId)
       ) {
-        console.log(
-          'ctx.session.updatedCart[productId].quantity :>> ',
-          ctx.session.updatedCart[productId].quantity
-        );
-        console.log(
-          'ctx.session.cart[productId].quantity :>> ',
-          ctx.session.cart[productId].quantity
-        );
         const quantityDiff =
           ctx.session.updatedCart[productId].quantity -
           ctx.session.cart[productId].quantity;
-        console.log('quantityDiff :>> ', quantityDiff);
         if (quantityDiff !== 0) {
           diffArray.push({
             user: ctx.session.user._id,
@@ -398,9 +367,7 @@ const updateCartQuantity = async ctx => {
       }
     }
 
-    console.log('diffArray :>> ', diffArray);
     if (diffArray.length > 0) {
-      console.log('diffArray :>> ', diffArray);
       try {
         await API.updateQuantity({ updateProducts: diffArray });
       } catch (error) {
