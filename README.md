@@ -44,7 +44,7 @@
    npm start
    ```
 
-   Додаток буде доступний за адресою [http://localhost:3000](http://localhost:3000).
+   Чат бот буде доступний в Телеграмі [https://t.me/OwlAlexc_bot](https://t.me/OwlAlexc_bot).
 
 ### Серверна частина
 
