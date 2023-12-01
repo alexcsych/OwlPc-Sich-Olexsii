@@ -264,7 +264,11 @@ const editMessage = async (ctx, text, inlineBtn, isRemoveFromCart) => {
       ? (ctx.session.menuId = sentMessage.message_id)
       : (ctx.session.messageId = sentMessage.message_id);
   } catch (error) {
-    if (!error.description.includes('message is not modified')) {
+    if (
+      error &&
+      error.description &&
+      !error.description.includes('message is not modified')
+    ) {
       const options = !inlineBtn ? {} : inlineBtn;
       const sentMessage = await ctx.reply(text, options);
       isRemoveFromCart
